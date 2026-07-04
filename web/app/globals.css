@@ -1,0 +1,454 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --night: #080c12;
+  --surface: #0d1219;
+  --surface-2: #111820;
+  --rim: #1c2533;
+  --rim2: #253040;
+  --amber: #d97706;
+  --amber-hi: #fcd34d;
+  --green: #10b981;
+  --blue: #60a5fa;
+  --purple: #a78bfa;
+  --red: #f87171;
+  --pink: #e879f9;
+  --orange: #fb923c;
+  --fg: #d8e4f0;
+  --sub: #8096b0;
+  --faint: #3d5068;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--night);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--amber-hi);
+}
+
+.wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Nav ─────────────────────────────────────── */
+nav {
+  border-bottom: 1px solid var(--rim);
+  padding: 16px 0;
+  position: sticky;
+  top: 0;
+  background: rgba(8, 12, 18, 0.88);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+}
+nav .inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.wordmark {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wordmark-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+}
+.pill-tag {
+  font-size: 11px;
+  font-family: var(--mono);
+  border: 1px solid var(--rim2);
+  border-radius: 20px;
+  padding: 3px 10px;
+  color: var(--sub);
+  letter-spacing: 0.04em;
+}
+
+/* ── Hero ────────────────────────────────────── */
+.hero {
+  padding: 56px 0 48px;
+  border-bottom: 1px solid var(--rim);
+}
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-eyebrow::after {
+  content: '';
+  flex: 0 0 32px;
+  height: 1px;
+  background: var(--amber);
+}
+.hero h1 {
+  font-size: clamp(28px, 4.2vw, 42px);
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin-bottom: 16px;
+}
+.hero h1 em {
+  font-style: normal;
+  color: var(--amber-hi);
+}
+.hero-sub {
+  font-size: 15.5px;
+  color: var(--sub);
+  max-width: 620px;
+  line-height: 1.65;
+}
+
+/* ── Section title ───────────────────────────── */
+.section-title {
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sub);
+  margin-bottom: 16px;
+}
+
+/* ── Pipeline-style step boxes ───────────────── */
+.pipeline {
+  display: grid;
+  grid-template-columns: 1fr 32px 1fr 32px 1fr;
+  gap: 0;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+@media (max-width: 720px) {
+  .pipeline {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .pipeline-arrow {
+    display: none;
+  }
+}
+.pipeline-box {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 10px;
+  padding: 16px;
+}
+.pipeline-box.input {
+  border-color: var(--blue);
+}
+.pipeline-box.engine {
+  border-color: var(--amber);
+  background: rgba(217, 119, 6, 0.06);
+}
+.pipeline-box.output {
+  border-color: var(--green);
+}
+.pb-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.pipeline-box.input .pb-label {
+  color: var(--blue);
+}
+.pipeline-box.engine .pb-label {
+  color: var(--amber);
+}
+.pipeline-box.output .pb-label {
+  color: var(--green);
+}
+.pb-note {
+  font-size: 12px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+.pipeline-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  font-size: 18px;
+}
+
+/* ── Main working card ──────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+.field label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--sub);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: var(--fg);
+  background: var(--surface-2);
+  border: 1px solid var(--rim2);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+::placeholder {
+  color: var(--faint);
+}
+
+textarea.spec-input {
+  width: 100%;
+  min-height: 220px;
+  padding: 12px;
+  font-size: 13px;
+  font-family: var(--mono);
+  resize: vertical;
+}
+
+/* ── Mode toggle (tab pills) ─────────────────── */
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.mode-toggle button {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: var(--mono);
+  border-radius: 6px;
+  border: 1px solid var(--rim2);
+  background: transparent;
+  color: var(--sub);
+  cursor: pointer;
+}
+.mode-toggle button.active {
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--amber-hi);
+  border-color: var(--amber);
+}
+
+/* ── Buttons ─────────────────────────────────── */
+.btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--rim2);
+  background: var(--surface-2);
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn:hover {
+  border-color: var(--amber);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #1a0f00;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+.btn-primary:disabled {
+  background: var(--surface-2);
+  color: var(--sub);
+  border-color: var(--rim2);
+}
+
+.hint {
+  color: var(--sub);
+  font-size: 12.5px;
+}
+
+.error-box {
+  border: 1px solid var(--red);
+  background: rgba(248, 113, 113, 0.08);
+  color: var(--red);
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: var(--mono);
+  white-space: pre-wrap;
+}
+
+/* ── File-tree style output viewer ──────────── */
+.file-tree {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tree-titlebar {
+  background: var(--rim);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tbar-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.tbar-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--sub);
+  margin-left: 4px;
+}
+
+.tabbar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--rim);
+  overflow-x: auto;
+  padding: 0 8px;
+}
+.tab {
+  padding: 9px 12px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab.active {
+  border-bottom-color: var(--amber);
+}
+/* category colors, mirrors the legend on the marketing page */
+.tab.cat-api {
+  color: var(--amber-hi);
+}
+.tab.cat-type {
+  color: var(--green);
+}
+.tab.cat-val {
+  color: var(--orange);
+}
+.tab.cat-svc {
+  color: var(--blue);
+}
+.tab.cat-hook {
+  color: var(--purple);
+}
+.tab.cat-mock {
+  color: var(--pink);
+}
+.tab.cat-doc {
+  color: var(--sub);
+}
+.tab:not(.active) {
+  opacity: 0.6;
+}
+
+.code-pane {
+  background: #0a0c10;
+  max-height: 480px;
+  overflow: auto;
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.scrollx {
+  overflow-x: auto;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--sub);
+  font-family: var(--mono);
+}
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+footer {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--faint);
+  font-family: var(--mono);
+}

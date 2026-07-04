@@ -1,0 +1,607 @@
+<title>API-Gen · AI Frontend Integration Generator</title>
+<meta name="description" content="Convert any API spec into a complete, production-ready Next.js integration layer — services, hooks, types, mocks, tests, and docs — in minutes.">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --night:   #080C12;
+    --surface: #0D1219;
+    --rim:     #1C2533;
+    --rim2:    #253040;
+    --amber:   #D97706;
+    --amber-hi:#FCD34D;
+    --green:   #10B981;
+    --blue:    #60A5FA;
+    --purple:  #A78BFA;
+    --red:     #F87171;
+    --fg:      #D8E4F0;
+    --sub:     #8096B0;
+    --faint:   #3D5068;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--night);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ─────────────────────────────────── */
+  .wrap   { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .wrap-s { max-width: 760px;  margin: 0 auto; padding: 0 24px; }
+
+  /* ── Nav ────────────────────────────────────── */
+  nav {
+    border-bottom: 1px solid var(--rim);
+    padding: 16px 0;
+    position: sticky; top: 0;
+    background: rgba(8,12,18,.88);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  nav .inner {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1100px; margin: 0 auto; padding: 0 24px;
+  }
+  .wordmark {
+    font-family: ui-monospace, monospace;
+    font-size: 14px; font-weight: 600;
+    letter-spacing: .03em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .wordmark-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+  .pill-tag {
+    font-size: 11px; font-family: ui-monospace, monospace;
+    border: 1px solid var(--rim2); border-radius: 20px;
+    padding: 3px 10px; color: var(--sub); letter-spacing: .04em;
+  }
+
+  /* ── Hero ───────────────────────────────────── */
+  .hero {
+    padding: 88px 0 72px;
+    border-bottom: 1px solid var(--rim);
+  }
+  .hero-eyebrow {
+    font-family: ui-monospace, monospace;
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .hero-eyebrow::after {
+    content: ''; flex: 0 0 32px; height: 1px; background: var(--amber);
+  }
+  h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 700; line-height: 1.12;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin-bottom: 22px;
+  }
+  h1 em { font-style: normal; color: var(--amber-hi); }
+  .hero-sub {
+    font-size: 17px; color: var(--sub); max-width: 560px;
+    line-height: 1.65; margin-bottom: 36px;
+  }
+  .hero-stats {
+    display: flex; gap: 36px; flex-wrap: wrap;
+  }
+  .stat-item { display: flex; flex-direction: column; gap: 2px; }
+  .stat-n {
+    font-family: ui-monospace, monospace;
+    font-size: 26px; font-weight: 700;
+    color: var(--fg); font-variant-numeric: tabular-nums;
+  }
+  .stat-n span { color: var(--amber); }
+  .stat-label { font-size: 12px; color: var(--sub); }
+
+  /* ── Pipeline ───────────────────────────────── */
+  .pipeline-section { padding: 64px 0; border-bottom: 1px solid var(--rim); }
+
+  .section-title {
+    font-size: 11px; font-family: ui-monospace, monospace;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--sub); margin-bottom: 32px;
+  }
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1fr 48px 1fr 48px 1fr;
+    gap: 0; align-items: center;
+  }
+  @media (max-width: 700px) {
+    .pipeline { grid-template-columns: 1fr; gap: 16px; }
+    .pipeline-arrow { display: none; }
+  }
+
+  .pipeline-box {
+    background: var(--surface);
+    border: 1px solid var(--rim);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .pipeline-box.input  { border-color: var(--blue);   }
+  .pipeline-box.engine { border-color: var(--amber); background: rgba(217,119,6,.06); }
+  .pipeline-box.output { border-color: var(--green);  }
+
+  .pb-label {
+    font-family: ui-monospace, monospace;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .pipeline-box.input  .pb-label { color: var(--blue); }
+  .pipeline-box.engine .pb-label { color: var(--amber); }
+  .pipeline-box.output .pb-label { color: var(--green); }
+
+  .pb-items { display: flex; flex-direction: column; gap: 6px; }
+  .pb-item {
+    font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--sub); display: flex; align-items: center; gap: 7px;
+  }
+  .pb-item::before { content: '—'; color: var(--faint); }
+
+  .pipeline-arrow {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--faint); font-size: 20px;
+  }
+  .engine-badge {
+    margin-top: 14px; padding: 6px 10px;
+    background: rgba(217,119,6,.12);
+    border: 1px solid rgba(217,119,6,.25);
+    border-radius: 6px;
+    font-family: ui-monospace, monospace; font-size: 11px;
+    color: var(--amber-hi); text-align: center;
+  }
+
+  /* ── File Tree ──────────────────────────────── */
+  .tree-section { padding: 64px 0; border-bottom: 1px solid var(--rim); }
+  .tree-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 48px; align-items: start;
+  }
+  @media (max-width: 800px) { .tree-layout { grid-template-columns: 1fr; } }
+
+  .tree-intro h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: -.02em;
+    line-height: 1.2; margin-bottom: 14px; text-wrap: balance;
+  }
+  .tree-intro p { color: var(--sub); font-size: 14px; line-height: 1.65; margin-bottom: 20px; }
+
+  .legend { display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--sub); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .file-tree {
+    background: var(--surface);
+    border: 1px solid var(--rim);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .tree-titlebar {
+    background: var(--rim);
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tbar-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .tbar-title {
+    font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--sub); margin-left: 4px;
+  }
+  .tree-body { padding: 16px; font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.9; }
+
+  .t-dir  { color: var(--sub); }
+  .t-file { color: var(--faint); padding-left: 18px; display: block; }
+  .t-file.gen-infra  { color: var(--amber-hi); }
+  .t-file.gen-svc    { color: var(--blue); }
+  .t-file.gen-hook   { color: var(--purple); }
+  .t-file.gen-type   { color: #34D399; }
+  .t-file.gen-val    { color: #FB923C; }
+  .t-file.gen-mock   { color: #E879F9; }
+  .t-file.gen-test   { color: #A78BFA; }
+  .t-file.gen-doc    { color: var(--sub); }
+  .t-file.gen-env    { color: var(--amber); }
+
+  .t-badge {
+    font-size: 9px; letter-spacing: .05em;
+    border-radius: 3px; padding: 1px 5px;
+    vertical-align: middle; margin-left: 6px;
+    font-weight: 600;
+  }
+
+  /* ── Features ───────────────────────────────── */
+  .features-section { padding: 64px 0; border-bottom: 1px solid var(--rim); }
+  .features-section h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: -.02em;
+    margin-bottom: 36px; text-wrap: balance;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1px;
+    border: 1px solid var(--rim);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .feat {
+    background: var(--surface);
+    padding: 24px;
+    transition: background .15s;
+  }
+  .feat:hover { background: #111820; }
+  .feat-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; margin-bottom: 14px;
+    border: 1px solid var(--rim);
+  }
+  .feat h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .feat p  { font-size: 12.5px; color: var(--sub); line-height: 1.55; }
+
+  /* ── CLI ────────────────────────────────────── */
+  .cli-section { padding: 64px 0; border-bottom: 1px solid var(--rim); }
+  .cli-section h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: -.02em;
+    margin-bottom: 10px;
+  }
+  .cli-section > .wrap > p { color: var(--sub); margin-bottom: 36px; font-size: 14px; }
+  .cli-grid { display: flex; flex-direction: column; gap: 3px; }
+  .cli-cmd {
+    background: var(--surface);
+    border: 1px solid var(--rim);
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .cli-prompt {
+    font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--green); flex-shrink: 0;
+  }
+  .cli-text {
+    font-family: ui-monospace, monospace; font-size: 13px;
+    color: var(--fg); flex: 1;
+  }
+  .cli-text .flag { color: var(--sub); }
+  .cli-desc { font-size: 12px; color: var(--faint); text-align: right; min-width: 200px; }
+
+  /* ── Config ─────────────────────────────────── */
+  .config-section { padding: 64px 0; border-bottom: 1px solid var(--rim); }
+  .config-section h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: -.02em;
+    margin-bottom: 10px;
+  }
+  .config-section > .wrap-s > p { color: var(--sub); margin-bottom: 28px; font-size: 14px; }
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--rim);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .code-topbar {
+    background: var(--rim);
+    padding: 9px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .code-filename {
+    font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--sub);
+  }
+  .code-body {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: ui-monospace, monospace;
+    font-size: 12.5px; line-height: 1.8;
+  }
+  .kw  { color: var(--purple); }
+  .str { color: var(--green); }
+  .key { color: var(--blue); }
+  .val { color: var(--amber-hi); }
+  .cmt { color: var(--faint); }
+  .bln { color: var(--amber); }
+
+  /* ── Footer ─────────────────────────────────── */
+  footer {
+    padding: 40px 0;
+    text-align: center;
+    font-size: 12px; color: var(--faint);
+    font-family: ui-monospace, monospace;
+  }
+</style>
+
+<nav>
+  <div class="inner">
+    <div class="wordmark">
+      <div class="wordmark-dot"></div>
+      api-gen
+    </div>
+    <span class="pill-tag">PRD · v1.0</span>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-eyebrow">Client Requirement</div>
+    <h1>Upload a spec.<br><em>Ship a full integration layer.</em></h1>
+    <p class="hero-sub">
+      api-gen converts any API specification into a complete, production-ready
+      Next.js frontend — services, React Query hooks, TypeScript types, Zod
+      validators, MSW mocks, Vitest tests, and living docs — without touching a
+      single file manually.
+    </p>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-n">8<span>+</span></span>
+        <span class="stat-label">Input formats</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-n">12<span>+</span></span>
+        <span class="stat-label">File types generated</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-n">0</span>
+        <span class="stat-label">Manual changes required</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-n">&lt;5<span>m</span></span>
+        <span class="stat-label">From spec to running code</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pipeline ── -->
+<section class="pipeline-section">
+  <div class="wrap">
+    <div class="section-title">System overview</div>
+    <div class="pipeline">
+      <div class="pipeline-box input">
+        <div class="pb-label">Input — any spec</div>
+        <div class="pb-items">
+          <div class="pb-item">Swagger / OpenAPI JSON</div>
+          <div class="pb-item">OpenAPI YAML</div>
+          <div class="pb-item">OpenAPI URL</div>
+          <div class="pb-item">Postman Collection</div>
+          <div class="pb-item">GraphQL SDL</div>
+          <div class="pb-item">GraphQL Introspection</div>
+          <div class="pb-item">REST Endpoint List</div>
+          <div class="pb-item">cURL Collection</div>
+        </div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-box engine">
+        <div class="pb-label">Parsing Engine</div>
+        <div class="pb-items">
+          <div class="pb-item">Format detection</div>
+          <div class="pb-item">Spec validation</div>
+          <div class="pb-item">Normalize → ApiSpec</div>
+          <div class="pb-item">Extract endpoints</div>
+          <div class="pb-item">Detect auth scheme</div>
+          <div class="pb-item">Detect pagination</div>
+        </div>
+        <div class="engine-badge">AI Generation Layer</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-box output">
+        <div class="pb-label">Output — ready to ship</div>
+        <div class="pb-items">
+          <div class="pb-item">Axios API client</div>
+          <div class="pb-item">TypeScript types</div>
+          <div class="pb-item">Zod validators</div>
+          <div class="pb-item">CRUD services</div>
+          <div class="pb-item">React Query hooks</div>
+          <div class="pb-item">MSW mocks + Vitest tests</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── File Tree ── -->
+<section class="tree-section">
+  <div class="wrap">
+    <div class="tree-layout">
+      <div class="tree-intro">
+        <div class="section-title">Generated structure</div>
+        <h2>Every file. Zero boilerplate.</h2>
+        <p>
+          The generator produces a complete, opinionated folder structure that
+          compiles without modification and follows Next.js best practices.
+          Every file is documented, typed, and linted.
+        </p>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#FCD34D"></div>API infrastructure</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#60A5FA"></div>Service layer</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#A78BFA"></div>React Query hooks</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#34D399"></div>TypeScript types</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FB923C"></div>Zod validators</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#E879F9"></div>MSW mocks</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#A78BFA"></div>Vitest tests</div>
+        </div>
+      </div>
+
+      <div class="file-tree">
+        <div class="tree-titlebar">
+          <div class="tbar-dot" style="background:#FF5F57"></div>
+          <div class="tbar-dot" style="background:#FEBC2E"></div>
+          <div class="tbar-dot" style="background:#28C840"></div>
+          <span class="tbar-title">src/ — generated output</span>
+        </div>
+        <div class="tree-body">
+<span class="t-dir">api/</span>
+<span class="t-file gen-infra">├── client.ts</span>
+<span class="t-file gen-infra">├── auth.ts</span>
+<span class="t-file gen-infra">├── interceptors.ts</span>
+<span class="t-file gen-infra">├── endpoints.ts</span>
+<span class="t-file gen-infra">├── constants.ts</span>
+<span class="t-file gen-infra">└── queryClient.ts</span>
+<span class="t-dir" style="margin-top:4px">services/</span>
+<span class="t-file gen-svc">├── users.service.ts</span>
+<span class="t-file gen-svc">├── orders.service.ts</span>
+<span class="t-file gen-svc">└── ···</span>
+<span class="t-dir" style="margin-top:4px">hooks/</span>
+<span class="t-file gen-hook">├── users/index.ts</span>
+<span class="t-file gen-hook">├── orders/index.ts</span>
+<span class="t-file gen-hook">└── queryKeys.ts</span>
+<span class="t-dir" style="margin-top:4px">types/</span>
+<span class="t-file gen-type">└── index.ts</span>
+<span class="t-dir" style="margin-top:4px">validators/</span>
+<span class="t-file gen-val">├── users.schema.ts</span>
+<span class="t-file gen-val">└── orders.schema.ts</span>
+<span class="t-dir" style="margin-top:4px">mocks/</span>
+<span class="t-file gen-mock">├── handlers.ts</span>
+<span class="t-file gen-mock">└── data.ts</span>
+<span class="t-dir" style="margin-top:4px">tests/</span>
+<span class="t-file gen-test">├── users.service.test.ts</span>
+<span class="t-file gen-test">└── users.hooks.test.ts</span>
+<span class="t-dir" style="margin-top:4px">docs/</span>
+<span class="t-file gen-doc">└── README.md</span>
+<span class="t-file gen-env" style="margin-top:4px">.env.example</span>
+<span class="t-file gen-env">api-generator.config.ts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ── -->
+<section class="features-section">
+  <div class="wrap">
+    <div class="section-title">Capabilities</div>
+    <h2>What gets generated</h2>
+    <div class="features-grid">
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(217,119,6,.1);border-color:rgba(217,119,6,.3)">⚡</div>
+        <h3>API Client</h3>
+        <p>Axios instance with base URL, timeout, auth interceptors, refresh token, retry logic, and typed error mapping.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.3)">🔧</div>
+        <h3>Service Layer</h3>
+        <p>Full CRUD classes per resource — getAll, getById, create, update, delete — with query params, path params, multipart uploads, file downloads, pagination, sorting, and filtering.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.3)">⚛️</div>
+        <h3>React Query Hooks</h3>
+        <p>useUsers, useUser, useCreateUser, useUpdateUser, useDeleteUser — with infinite queries, optimistic updates, prefetch helpers, cache config, and invalidation.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.3)">📐</div>
+        <h3>TypeScript Types</h3>
+        <p>Request types, response types, enums, generic API response wrappers, pagination models, error models. Strict mode. Zero `any`.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(251,146,60,.1);border-color:rgba(251,146,60,.3)">✅</div>
+        <h3>Zod Validators</h3>
+        <p>Request payload schemas, form validation schemas with React Hook Form integration, optional response validation.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(232,121,249,.1);border-color:rgba(232,121,249,.3)">🎭</div>
+        <h3>MSW Mocks</h3>
+        <p>Service Worker handlers with Faker-generated realistic data. Develop frontend without any backend availability.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3)">🔐</div>
+        <h3>Auth Detection</h3>
+        <p>Auto-detects JWT, Bearer, Cookie, OAuth, API Key. Generates login/logout services, refresh logic, auth middleware, and protected request helpers.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.3)">🧪</div>
+        <h3>Vitest Tests</h3>
+        <p>Starter test suites for services, hooks, mock server, and the API client. Ready to extend with business logic.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.3)">🔄</div>
+        <h3>API Diff Engine</h3>
+        <p>Compare two specs — detect added/removed endpoints, schema changes, deprecations, and breaking changes. Generates a migration report.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLI ── -->
+<section class="cli-section">
+  <div class="wrap">
+    <div class="section-title">CLI</div>
+    <h2>One command to start.</h2>
+    <p>Every workflow has a dedicated command. Composable with CI/CD.</p>
+    <div class="cli-grid">
+      <div class="cli-cmd">
+        <span class="cli-prompt">$</span>
+        <span class="cli-text">api-gen <span style="color:var(--amber)">init</span></span>
+        <span class="cli-desc">scaffold config file</span>
+      </div>
+      <div class="cli-cmd">
+        <span class="cli-prompt">$</span>
+        <span class="cli-text">api-gen <span style="color:var(--amber)">import</span> <span class="flag">swagger.json</span></span>
+        <span class="cli-desc">parse + generate everything</span>
+      </div>
+      <div class="cli-cmd">
+        <span class="cli-prompt">$</span>
+        <span class="cli-text">api-gen <span style="color:var(--amber)">sync</span></span>
+        <span class="cli-desc">regenerate from saved spec</span>
+      </div>
+      <div class="cli-cmd">
+        <span class="cli-prompt">$</span>
+        <span class="cli-text">api-gen <span style="color:var(--amber)">generate</span> <span class="flag">users</span></span>
+        <span class="cli-desc">generate single resource</span>
+      </div>
+      <div class="cli-cmd">
+        <span class="cli-prompt">$</span>
+        <span class="cli-text">api-gen <span style="color:var(--amber)">diff</span> <span class="flag">old.json new.json</span></span>
+        <span class="cli-desc">detect breaking changes</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Config ── -->
+<section class="config-section">
+  <div class="wrap-s">
+    <div class="section-title">Configuration</div>
+    <h2>Fully configurable.</h2>
+    <p>Drop <code style="font-size:12px;color:var(--amber);background:rgba(217,119,6,.1);padding:2px 6px;border-radius:4px">api-generator.config.ts</code> in your project root. Every option has a sensible default.</p>
+    <div class="code-block">
+      <div class="code-topbar">
+        <span class="code-filename">api-generator.config.ts</span>
+      </div>
+      <div class="code-body"><span class="kw">import</span> { <span class="val">defineConfig</span> } <span class="kw">from</span> <span class="str">'api-gen'</span>
+
+<span class="kw">export default</span> <span class="val">defineConfig</span>({
+  <span class="key">input</span>:  <span class="str">'./swagger.json'</span>,
+  <span class="key">output</span>: <span class="str">'./src'</span>,
+
+  <span class="key">client</span>: <span class="str">'axios'</span>,              <span class="cmt">// 'axios' | 'fetch'</span>
+  <span class="key">validation</span>: <span class="str">'zod'</span>,           <span class="cmt">// 'zod' | 'yup'</span>
+  <span class="key">queryLibrary</span>: <span class="str">'react-query'</span>,  <span class="cmt">// '@tanstack/react-query' v5</span>
+  <span class="key">testRunner</span>: <span class="str">'vitest'</span>,
+
+  <span class="key">generate</span>: {
+    <span class="key">services</span>:   <span class="bln">true</span>,
+    <span class="key">hooks</span>:      <span class="bln">true</span>,
+    <span class="key">validators</span>: <span class="bln">true</span>,
+    <span class="key">mocks</span>:      <span class="bln">true</span>,
+    <span class="key">tests</span>:      <span class="bln">true</span>,
+    <span class="key">docs</span>:       <span class="bln">true</span>,
+  },
+
+  <span class="key">naming</span>: {
+    <span class="key">convention</span>:  <span class="str">'camelCase'</span>,    <span class="cmt">// | 'snake_case'</span>
+    <span class="key">servicesSuffix</span>: <span class="str">'.service'</span>,
+    <span class="key">hookPrefix</span>:     <span class="str">'use'</span>,
+  },
+})</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">api-gen · AI Frontend API Integration Generator · PRD v1.0</div>
+</footer>

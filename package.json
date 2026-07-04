@@ -1,0 +1,33 @@
+{
+  "name": "ai-api-integration-generator",
+  "version": "1.0.0",
+  "description": "Template-based tool that generates Axios services, React Query hooks, TypeScript types, and Zod schemas from OpenAPI/Swagger specs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "apigen": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "fs-extra": "^11.2.0",
+    "js-yaml": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  }
+}
