@@ -10,16 +10,20 @@ const program = new Command();
 program
   .name('apigen')
   .description(
-    'Template-based API integration generator — turns OpenAPI/Swagger specs\n' +
-      'into TypeScript types, Zod schemas, Axios services, React Query hooks, and MSW mocks.\n' +
+    'Template-based API integration generator — turns OpenAPI/Swagger specs,\n' +
+      'Postman Collections, or GraphQL schemas into TypeScript types, Zod schemas,\n' +
+      'Axios services, React Query hooks, and MSW mocks.\n' +
       'Fully deterministic: no AI, no API key, no network calls.'
   )
   .version('1.0.0');
 
 program
   .command('generate', { isDefault: true })
-  .description('Generate TypeScript integration code from an OpenAPI/Swagger spec')
-  .requiredOption('-i, --input <path>', 'Path or URL to the OpenAPI/Swagger spec (JSON or YAML)')
+  .description('Generate TypeScript integration code from an OpenAPI/Swagger spec, Postman Collection, or GraphQL schema')
+  .requiredOption(
+    '-i, --input <path>',
+    'Path or URL to the spec: OpenAPI/Swagger, Postman Collection, or GraphQL (SDL or introspection JSON)'
+  )
   .requiredOption('-o, --output <dir>', 'Output directory for the generated files')
   .option('-b, --base-url <url>', 'Override the base URL from the spec')
   .action(async (opts) => {

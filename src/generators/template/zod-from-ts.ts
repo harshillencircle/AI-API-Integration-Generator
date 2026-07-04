@@ -5,7 +5,7 @@
  * a general TS-to-Zod compiler.
  */
 export function tsTypeToZod(tsType: string, schemaNames: Set<string>): string {
-  const t = tsType.trim();
+  const t = stripOuterParens(tsType.trim());
 
   if (t.endsWith(' | null')) {
     return `${tsTypeToZod(t.slice(0, -' | null'.length), schemaNames)}.nullable()`;
@@ -73,6 +73,16 @@ function balanced(s: string): boolean {
     if (depth < 0) return false;
   }
   return depth === 0;
+}
+
+/**
+ * Strips a wrapping `(...)` when it spans the whole string, e.g. from GraphQL's
+ * `(X | null)[]` shape (a nullable list item) — without this, `X | null` embedded
+ * inside array/zod recursion would never match the plain `" | null"` suffix checks.
+ */
+export function stripOuterParens(t: string): string {
+  if (t.startsWith('(') && t.endsWith(')') && balanced(t.slice(1, -1))) return t.slice(1, -1);
+  return t;
 }
 
 export function splitTopLevel(s: string, delim: string): string[] {

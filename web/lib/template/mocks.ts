@@ -3,10 +3,10 @@ import type { GeneratedFile } from '../types';
 import { toPascalCase } from './naming';
 import { extractTypeRefs } from './type-refs';
 import { topoSort } from './topo-sort';
-import { splitTopLevel, findTopLevelColon } from './zod-from-ts';
+import { splitTopLevel, findTopLevelColon, stripOuterParens } from './zod-from-ts';
 
 function mockExprForType(tsType: string, schemaNames: Set<string>, fieldHint = 'value'): string {
-  const t = tsType.trim();
+  const t = stripOuterParens(tsType.trim());
 
   if (t.endsWith(' | null')) return mockExprForType(t.slice(0, -' | null'.length), schemaNames, fieldHint);
   if (schemaNames.has(t)) return `createMock${t}()`;
@@ -73,8 +73,9 @@ function factoryBlock(schema: SchemaModel, schemaNames: Set<string>): string {
   const fields = (schema.properties ?? []).map(
     (p) => `    ${p.name}: ${mockExprForType(p.tsType, schemaNames, p.name)},`
   );
-  const hasId = (schema.properties ?? []).some((p) => p.name === 'id');
-  const listOverride = hasId ? '{ id: i + 1 }' : '{}';
+  const idProp = (schema.properties ?? []).find((p) => p.name === 'id');
+  // GraphQL's ID! scalar (and OpenAPI string-typed ids) need a string override — `i + 1` only fits numeric ids.
+  const listOverride = idProp ? (idProp.tsType === 'number' ? '{ id: i + 1 }' : '{ id: `id-${i + 1}` }') : '{}';
   return `export function ${factoryName(schema.name)}(overrides: Partial<${schema.name}> = {}): ${schema.name} {
   return {
 ${fields.join('\n')}
@@ -99,6 +100,7 @@ export function generateMockDataFile(spec: NormalizedSpec): GeneratedFile {
 }
 
 export function generateMockHandlersFile(spec: NormalizedSpec): GeneratedFile {
+  const schemaNames = new Set(spec.schemas.keys());
   const byTag = new Map<string, EndpointModel[]>();
   for (const ep of spec.endpoints) {
     const list = byTag.get(ep.tag) ?? [];
@@ -107,28 +109,44 @@ export function generateMockHandlersFile(spec: NormalizedSpec): GeneratedFile {
   }
 
   const usedFactories = new Set<string>();
-  const handlers: string[] = [];
+  const httpHandlers: string[] = [];
+  const graphqlHandlers: string[] = [];
 
   for (const [, endpoints] of byTag) {
     for (const ep of endpoints) {
-      const mswPath = ep.path.replace(/\{([^}]+)\}/g, ':$1');
-      const responseFactory = spec.schemas.has(ep.responseType.replace(/\[\]$/, ''))
-        ? ep.responseType.endsWith('[]')
-          ? `${factoryName(ep.responseType.slice(0, -2))}List()`
-          : `${factoryName(ep.responseType)}()`
+      // GraphQL response types carry nullability/union noise (e.g. "(User | null)[] | null") —
+      // pull the referenced schema name out rather than string-matching the whole type.
+      const baseName = ep.graphql
+        ? extractTypeRefs(ep.responseType, schemaNames)[0]
+        : spec.schemas.has(ep.responseType.replace(/\[\]$/, ''))
+          ? ep.responseType.replace(/\[\]$/, '')
+          : undefined;
+      const responseFactory = baseName
+        ? ep.responseType.includes('[]')
+          ? `${factoryName(baseName)}List()`
+          : `${factoryName(baseName)}()`
         : null;
-      if (responseFactory) {
-        const baseName = ep.responseType.replace(/\[\]$/, '');
-        usedFactories.add(baseName);
+      if (baseName) usedFactories.add(baseName);
+
+      if (ep.graphql) {
+        const dataExpr =
+          responseFactory ?? (ep.responseType === 'void' ? 'null' : mockExprForType(ep.responseType, schemaNames));
+        graphqlHandlers.push(
+          `  graphql.${ep.graphql.operationType}('${ep.graphql.operationName}', () => {\n` +
+            `    return HttpResponse.json({ data: { ${ep.graphql.fieldName}: ${dataExpr} } });\n` +
+            `  }),`
+        );
+        continue;
       }
 
+      const mswPath = ep.path.replace(/\{([^}]+)\}/g, ':$1');
       const body = responseFactory
         ? `HttpResponse.json(${responseFactory})`
         : ep.responseType === 'void'
           ? 'new HttpResponse(null, { status: 204 })'
           : 'HttpResponse.json({})';
 
-      handlers.push(`  http.${ep.method}('${mswPath}', () => {\n    return ${body};\n  }),`);
+      httpHandlers.push(`  http.${ep.method}('${mswPath}', () => {\n    return ${body};\n  }),`);
     }
   }
 
@@ -137,9 +155,10 @@ export function generateMockHandlersFile(spec: NormalizedSpec): GeneratedFile {
     ? `import { ${Array.from(new Set(factoryImports)).join(', ')} } from './data';\n`
     : '';
 
+  const mswNamed = [...(httpHandlers.length ? ['http'] : []), ...(graphqlHandlers.length ? ['graphql'] : []), 'HttpResponse'];
   const content =
-    `import { http, HttpResponse } from 'msw';\n${importLine}\n` +
-    `export const handlers = [\n${handlers.join('\n')}\n];\n`;
+    `import { ${mswNamed.join(', ')} } from 'msw';\n${importLine}\n` +
+    `export const handlers = [\n${[...httpHandlers, ...graphqlHandlers].join('\n')}\n];\n`;
 
   return { path: 'mocks/handlers.ts', content };
 }

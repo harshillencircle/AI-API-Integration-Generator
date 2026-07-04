@@ -1,5 +1,5 @@
 import * as yaml from 'js-yaml';
-import { toCamelCase, safeIdentifier, methodNameFromPath } from './naming';
+import { toCamelCase, safeIdentifier, methodNameFromPath, safePropName } from './naming';
 import type {
   EndpointModel,
   HttpMethod,
@@ -41,10 +41,6 @@ function resolveRef(spec: Json, ref: string): Json | undefined {
 interface TsTypeResult {
   tsType: string;
   refName?: string;
-}
-
-function safePropName(name: string): string {
-  return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : `'${name}'`;
 }
 
 function schemaToTsType(spec: Json, schema: Json): TsTypeResult {

@@ -6,16 +6,29 @@ export interface ParamModel {
   required: boolean;
 }
 
+/**
+ * Present only for endpoints synthesized from a GraphQL schema. GraphQL has a single
+ * HTTP endpoint and no REST-style path/method — services.ts branches on this field to
+ * emit a POST-with-query-document call instead of the REST url/method call.
+ */
+export interface GraphQLOperationModel {
+  operationType: 'query' | 'mutation';
+  operationName: string; // PascalCase, used as the GraphQL operation name, e.g. "GetUser"
+  document: string; // full query/mutation document text, incl. an auto-selected field set
+  fieldName: string; // root Query/Mutation field this operation calls, e.g. "user"
+}
+
 export interface EndpointModel {
   method: HttpMethod;
-  path: string; // raw spec path, e.g. /pets/{id}
+  path: string; // raw spec path, e.g. /pets/{id}; empty string for GraphQL endpoints
   operationId: string; // camelCase, unique
   tag: string;
   summary?: string;
   pathParams: ParamModel[];
-  queryParams: ParamModel[];
+  queryParams: ParamModel[]; // also used for GraphQL variables when `graphql` is set
   requestBodyType?: string; // TS type expression, e.g. "Pet" or "{ name: string }"
   responseType: string; // TS type expression, "void" if none found
+  graphql?: GraphQLOperationModel;
 }
 
 export type SchemaKind = 'object' | 'enum' | 'alias';

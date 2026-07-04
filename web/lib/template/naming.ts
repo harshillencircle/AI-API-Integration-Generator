@@ -33,3 +33,8 @@ export function methodNameFromPath(method: string, path: string): string {
     .map((seg) => (seg.startsWith('{') ? `By${toPascalCase(seg.slice(1, -1))}` : toPascalCase(seg)));
   return toCamelCase(`${method} ${segments.join(' ')}`);
 }
+
+/** Wraps a property name in quotes if it isn't a valid bare identifier. */
+export function safePropName(name: string): string {
+  return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name) ? name : `'${name}'`;
+}

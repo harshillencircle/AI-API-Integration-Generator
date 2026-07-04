@@ -37,6 +37,40 @@ function buildMethodBody(ep: EndpointModel): string {
   return isVoid ? `    await ${call};` : `    const { data } = await ${call};\n    return data;`;
 }
 
+/** Embeds arbitrary text as a JS template literal, escaping chars that would otherwise break out of it. */
+function toJsTemplateLiteral(text: string): string {
+  const escaped = text.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+  return `\`${escaped}\``;
+}
+
+function graphqlDocumentConstName(ep: EndpointModel): string {
+  return `${toPascalCase(ep.operationId)}Document`;
+}
+
+function buildGraphQLMethodSignature(ep: EndpointModel): string {
+  if (!ep.queryParams.length) return '';
+  const allOptional = ep.queryParams.every((p) => !p.required);
+  const fields = ep.queryParams.map((p) => `${p.name}${p.required ? '' : '?'}: ${p.tsType}`).join('; ');
+  return `params${allOptional ? '?' : ''}: { ${fields} }`;
+}
+
+/** GraphQL always POSTs a { query, variables } envelope to a single endpoint and unwraps `data.<field>`. */
+function buildGraphQLMethodBody(ep: EndpointModel): string {
+  const gql = ep.graphql!;
+  const docConst = graphqlDocumentConstName(ep);
+  const isVoid = ep.responseType === 'void';
+  const dataType = isVoid ? 'unknown' : ep.responseType;
+  const generic = `<{ data: { ${gql.fieldName}: ${dataType} }; errors?: GraphQLError[] }>`;
+  const payload = ep.queryParams.length ? `{ query: ${docConst}, variables: params }` : `{ query: ${docConst} }`;
+
+  const lines = [
+    `    const { data } = await apiClient.post${generic}('', ${payload});`,
+    `    if (data.errors?.length) throw new Error(data.errors[0].message);`,
+  ];
+  if (!isVoid) lines.push(`    return data.data.${gql.fieldName};`);
+  return lines.join('\n');
+}
+
 export function generateServiceFiles(spec: NormalizedSpec): GeneratedFile[] {
   const schemaNames = new Set(spec.schemas.keys());
   const files: GeneratedFile[] = [];
@@ -51,6 +85,8 @@ export function generateServiceFiles(spec: NormalizedSpec): GeneratedFile[] {
   for (const [tag, endpoints] of byTag) {
     const className = `${toPascalCase(tag)}Service`;
     const usedTypes = new Set<string>();
+    const usesGraphQL = endpoints.some((ep) => ep.graphql);
+    if (usesGraphQL) usedTypes.add('GraphQLError');
     for (const ep of endpoints) {
       if (ep.requestBodyType) extractTypeRefs(ep.requestBodyType, schemaNames).forEach((t) => usedTypes.add(t));
       if (ep.responseType) extractTypeRefs(ep.responseType, schemaNames).forEach((t) => usedTypes.add(t));
@@ -62,8 +98,15 @@ export function generateServiceFiles(spec: NormalizedSpec): GeneratedFile[] {
     const methods = endpoints.map((ep) => {
       const doc = ep.summary ? `  /** ${ep.summary.replace(/\s+/g, ' ').trim()} */\n` : '';
       const returnType = ep.responseType === 'void' ? 'Promise<void>' : `Promise<${ep.responseType}>`;
-      return `${doc}  static async ${ep.operationId}(${buildMethodSignature(ep)}): ${returnType} {\n${buildMethodBody(ep)}\n  }`;
+      const signature = ep.graphql ? buildGraphQLMethodSignature(ep) : buildMethodSignature(ep);
+      const body = ep.graphql ? buildGraphQLMethodBody(ep) : buildMethodBody(ep);
+      return `${doc}  static async ${ep.operationId}(${signature}): ${returnType} {\n${body}\n  }`;
     });
+
+    const documentConsts = endpoints
+      .filter((ep) => ep.graphql)
+      .map((ep) => `const ${graphqlDocumentConstName(ep)} = ${toJsTemplateLiteral(ep.graphql!.document)};`)
+      .join('\n\n');
 
     const typeImport = usedTypes.size
       ? `import type { ${Array.from(usedTypes).join(', ')} } from '../types/index';\n`
@@ -71,6 +114,7 @@ export function generateServiceFiles(spec: NormalizedSpec): GeneratedFile[] {
 
     const content =
       `import apiClient from '../api/client';\n${typeImport}\n` +
+      (documentConsts ? `${documentConsts}\n\n` : '') +
       `export class ${className} {\n${methods.join('\n\n')}\n}\n`;
 
     files.push({ path: `services/${tag}.service.ts`, content });

@@ -20,12 +20,12 @@ export async function generateFromRequest(req: GenerateRequest): Promise<Generat
   if (!content) throw new Error('No spec content or URL provided.');
 
   const spec = parseSpecContent(content, filename);
-  if (spec.format !== 'openapi') {
+  if (spec.format === 'unknown') {
     throw new Error(
-      `Template mode only supports OpenAPI/Swagger specs right now. Detected: ${formatDisplayName(spec.format)}.`
+      `Could not detect the spec format. Supported: OpenAPI/Swagger, Postman Collection, GraphQL SDL, GraphQL introspection JSON. Detected: ${formatDisplayName(spec.format)}.`
     );
   }
 
-  const files = generateTemplateFiles(spec.content, req.baseUrl);
+  const files = generateTemplateFiles(spec.content, spec.format, req.baseUrl);
   return { files, duration: Date.now() - startTime };
 }

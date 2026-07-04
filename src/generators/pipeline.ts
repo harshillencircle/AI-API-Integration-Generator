@@ -13,8 +13,14 @@ export async function generateIntegration(options: GenerationOptions): Promise<G
   const rawSpec = await loadSpec(options.input);
   logger.success(`Format detected: ${chalk.bold(formatDisplayName(rawSpec.format))}`);
 
+  if (rawSpec.format === 'unknown') {
+    throw new Error(
+      'Could not detect the spec format. Supported: OpenAPI/Swagger, Postman Collection, GraphQL SDL, GraphQL introspection JSON.'
+    );
+  }
+
   logger.step(2, 'Generating integration (template-based, no AI)...');
-  const files = generateTemplateFiles(rawSpec.content, options.baseUrl);
+  const files = generateTemplateFiles(rawSpec.content, rawSpec.format, options.baseUrl);
   logger.success(`Generated ${files.length} files`);
 
   logger.step(3, `Writing to: ${chalk.cyan(options.output)}`);
