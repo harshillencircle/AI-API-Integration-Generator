@@ -13,7 +13,7 @@ import type { NormalizedSpec } from './model';
 
 export type TemplateSourceFormat = 'openapi' | 'postman' | 'graphql-sdl' | 'graphql-introspection';
 
-const NORMALIZERS: Record<TemplateSourceFormat, (rawContent: string, baseUrlOverride?: string) => NormalizedSpec> = {
+export const NORMALIZERS: Record<TemplateSourceFormat, (rawContent: string, baseUrlOverride?: string) => NormalizedSpec> = {
   openapi: normalizeOpenApi,
   postman: normalizePostman,
   'graphql-sdl': normalizeGraphQLSDL,

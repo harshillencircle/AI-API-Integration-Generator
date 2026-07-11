@@ -16,6 +16,45 @@ interface GenerateResponse {
   warnings?: string[];
 }
 
+type ChangeSeverity = 'breaking' | 'safe' | 'warning';
+
+interface FieldChange {
+  kind: 'added' | 'removed' | 'changed' | 'possible-rename';
+  property: string;
+  renamedTo?: string;
+  severity: ChangeSeverity;
+  detail: string;
+}
+
+interface SchemaChange {
+  kind: 'added' | 'removed' | 'changed';
+  name: string;
+  severity: ChangeSeverity;
+  fields: FieldChange[];
+}
+
+interface EndpointChange {
+  kind: 'added' | 'removed' | 'changed';
+  operationId: string;
+  method?: string;
+  path?: string;
+  severity: ChangeSeverity;
+  details: string[];
+}
+
+interface DiffResponse {
+  endpoints: EndpointChange[];
+  schemas: SchemaChange[];
+  summary: { breaking: number; warning: number; safe: number };
+  duration: number;
+}
+
+const SEVERITY_LABEL: Record<ChangeSeverity, string> = {
+  breaking: '⚠ Breaking',
+  warning: '● Check',
+  safe: '✓ Safe',
+};
+
 const CATEGORIES: { prefix: string; cls: string; dot: string; label: string }[] = [
   { prefix: 'api/',        cls: 'cat-api',  dot: '#5EEAD4', label: 'API infrastructure' },
   { prefix: 'types/',      cls: 'cat-type', dot: '#34D399', label: 'TypeScript types'   },
@@ -54,6 +93,13 @@ export default function Page() {
   const [copied, setCopied]     = useState(false);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showCompare, setShowCompare]   = useState(false);
+  const [oldSpecText, setOldSpecText]   = useState('');
+  const [newSpecText, setNewSpecText]   = useState('');
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
+  const [diffReport, setDiffReport]     = useState<DiffResponse | null>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -126,7 +172,30 @@ export default function Page() {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function handleCompare() {
+    setCompareError(null);
+    setDiffReport(null);
+    setCompareLoading(true);
+
+    try {
+      const res = await fetch('/api/diff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldSpecContent: oldSpecText, newSpecContent: newSpecText }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      setDiffReport(data as DiffResponse);
+    } catch (err) {
+      setCompareError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCompareLoading(false);
+    }
+  }
+
   const canGenerate = !loading && (mode === 'url' ? specUrl.trim().length > 0 : specText.trim().length > 0);
+  const canCompare = !compareLoading && oldSpecText.trim().length > 0 && newSpecText.trim().length > 0;
 
   return (
     <>
@@ -143,78 +212,11 @@ export default function Page() {
       {/* ── Hero ── */}
       <section className="hero">
         <div className="wrap">
-          <div className="hero-eyebrow">Run it yourself</div>
-          <h1>
-            Paste a spec.<br />
-            <em>Get a typed integration layer.</em>
-          </h1>
-          <p className="hero-sub">
-            Drop in an OpenAPI / Swagger spec, a Postman Collection, or a GraphQL schema —
-            get Axios services, Zod validators, React Query hooks, MSW mocks, and docs
-            generated instantly. Deterministic template-based codegen: no AI model, no API key,
-            nothing sent to a third party.
-          </p>
+          <h1>Paste a spec. <em>Get a typed integration layer.</em></h1>
         </div>
       </section>
 
-      <div className="wrap" style={{ paddingTop: 48, paddingBottom: 80 }}>
-
-        {/* ── Why this matters ── */}
-        <div className="section-title">Why this matters</div>
-        <div className="card" style={{ marginBottom: 56 }}>
-          <p className="why-copy">
-            This is the part of every frontend project nobody wants to redo by hand. The developer pastes
-            a Swagger / OpenAPI spec, a Postman Collection, or a GraphQL schema — and instead of manually
-            writing <code>users.ts</code>, <code>orders.ts</code>, <code>hooks.ts</code>, and{' '}
-            <code>types.ts</code> for every resource, the generator produces the whole integration layer
-            in seconds: Axios services, React Query hooks, TypeScript types, error handling, validation,
-            a clean folder structure, and API documentation — all in one pass, and reproducible every
-            time the spec changes.
-          </p>
-
-          <div className="compare-grid">
-            <div className="compare-col compare-before">
-              <div className="compare-label">Without this — written by hand</div>
-              <ul className="compare-list">
-                <li><code>users.ts</code>, <code>orders.ts</code> — hand-rolled per resource</li>
-                <li><code>hooks.ts</code> — wired up manually per endpoint</li>
-                <li><code>types.ts</code> — kept in sync by hand</li>
-                <li>Error handling and validation re-invented per resource</li>
-                <li>Re-done from scratch every time the API changes</li>
-              </ul>
-            </div>
-            <div className="compare-col compare-after">
-              <div className="compare-label">Paste a spec — get all of this</div>
-              <ul className="compare-list">
-                <li>Axios services, generated per resource/tag</li>
-                <li>React Query hooks (useQuery / useMutation) out of the box</li>
-                <li>Strict TypeScript types for every request &amp; response</li>
-                <li>Built-in error handling and Zod validation</li>
-                <li>Consistent folder structure, plus generated API docs</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Pipeline diagram ── */}
-        <div className="pipeline">
-          <div className="pipeline-box input">
-            <div className="pb-label">Input</div>
-            <div className="pb-note">OpenAPI 3.x / Swagger 2.0, Postman Collection, or GraphQL schema — paste, upload, or link</div>
-          </div>
-          <div className="pipeline-arrow">→</div>
-          <div className="pipeline-box engine">
-            <div className="pb-label">Template engine</div>
-            <div className="pb-note">Spec is parsed into a schema model then walked by deterministic codegen — no network call</div>
-          </div>
-          <div className="pipeline-arrow">→</div>
-          <div className="pipeline-box output">
-            <div className="pb-label">Output</div>
-            <div className="pb-note">Types, validators, services, hooks, mocks, docs — preview or download as ZIP</div>
-          </div>
-        </div>
-
-        <div style={{ height: 56 }} />
+      <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
 
         {/* ── Capabilities ── */}
         <div className="section-title">What gets generated</div>
@@ -312,6 +314,115 @@ export default function Page() {
           </div>
         )}
 
+        {/* ── Compare toggle ── */}
+        <div style={{ marginTop: 20 }}>
+          <button className="btn" onClick={() => setShowCompare((v) => !v)}>
+            {showCompare ? '✕ Close compare' : '⇄ Compare with previous version'}
+          </button>
+        </div>
+
+        {/* ── Compare panel ── */}
+        {showCompare && (
+          <div style={{ marginTop: 16 }}>
+            <div className="section-title">Compare versions</div>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="row">
+                <div className="field">
+                  <label>Old spec</label>
+                  <textarea
+                    className="spec-input"
+                    style={{ minHeight: 160 }}
+                    placeholder="Paste the previous version of the spec…"
+                    value={oldSpecText}
+                    onChange={(e) => setOldSpecText(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>New spec</label>
+                  <textarea
+                    className="spec-input"
+                    style={{ minHeight: 160 }}
+                    placeholder="Paste the new version of the spec…"
+                    value={newSpecText}
+                    onChange={(e) => setNewSpecText(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="card-divider" />
+              <button
+                className={`btn btn-primary btn-generate${compareLoading ? ' btn-loading' : ''}`}
+                disabled={!canCompare}
+                onClick={handleCompare}
+              >
+                {compareLoading ? '⚙  Comparing…' : '⇄  Compare'}
+              </button>
+            </div>
+
+            {compareError && (
+              <div className="error-box" style={{ marginBottom: 16 }}>
+                {compareError}
+              </div>
+            )}
+
+            {diffReport && (
+              <div className="result-anim">
+                <div className="output-meta">
+                  <div className="output-stat">
+                    <span className="stat-badge severity-breaking">⚠ {diffReport.summary.breaking} breaking</span>
+                    <span className="stat-badge severity-warning">● {diffReport.summary.warning} to check</span>
+                    <span className="stat-badge">✓ {diffReport.summary.safe} safe</span>
+                  </div>
+                  <span className="hint">compared in {diffReport.duration} ms</span>
+                </div>
+
+                {diffReport.endpoints.length === 0 && diffReport.schemas.length === 0 && (
+                  <p className="hint">No changes detected between the two versions.</p>
+                )}
+
+                {diffReport.endpoints.length > 0 && (
+                  <div className="card" style={{ marginBottom: 16 }}>
+                    <div className="card-label">Endpoints</div>
+                    {diffReport.endpoints.map((e) => (
+                      <div className={`diff-item severity-${e.severity}`} key={e.operationId}>
+                        <div className="diff-item-head">
+                          <span className="diff-severity">{SEVERITY_LABEL[e.severity]}</span>
+                          <span className="diff-name">{e.method?.toUpperCase()} {e.path || e.operationId}</span>
+                        </div>
+                        <ul className="diff-details">
+                          {e.details.map((d, i) => <li key={i}>{d}</li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {diffReport.schemas.length > 0 && (
+                  <div className="card">
+                    <div className="card-label">Schemas</div>
+                    {diffReport.schemas.map((s) => (
+                      <div className={`diff-item severity-${s.severity}`} key={s.name}>
+                        <div className="diff-item-head">
+                          <span className="diff-severity">{SEVERITY_LABEL[s.severity]}</span>
+                          <span className="diff-name">{s.name} {s.kind !== 'changed' ? `(${s.kind})` : ''}</span>
+                        </div>
+                        {s.fields.length > 0 && (
+                          <ul className="diff-details">
+                            {s.fields.map((f, i) => (
+                              <li key={i}>
+                                <strong>{f.property}</strong>{f.renamedTo ? ` → ${f.renamedTo}` : ''}: {f.detail}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Output ── */}
         {result && (
           <div className="result-anim" style={{ marginTop: 48 }}>
@@ -322,7 +433,7 @@ export default function Page() {
                 <span className="stat-badge">✓ {result.files.length} files</span>
                 <span>generated in {result.duration} ms</span>
                 {result.warnings && result.warnings.length > 0 && (
-                  <span className="stat-badge" style={{ marginLeft: 8, color: '#FBBF24' }}>
+                  <span className="stat-badge severity-warning" style={{ marginLeft: 8 }}>
                     ⚠ {result.warnings.length} warning{result.warnings.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -338,7 +449,7 @@ export default function Page() {
             </div>
 
             {result.warnings && result.warnings.length > 0 && (
-              <div className="error-box" style={{ marginTop: 16, borderColor: '#FBBF2455', color: '#FDE68A' }}>
+              <div className="warning-box" style={{ marginTop: 16 }}>
                 <strong>Normalization warnings</strong>
                 <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
                   {result.warnings.map((w) => (
@@ -395,7 +506,7 @@ export default function Page() {
         )}
       </div>
 
-      <footer>api-gen · Integration Generator</footer>
+      <footer>api-gen</footer>
     </>
   );
 }
