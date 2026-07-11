@@ -16,6 +16,7 @@ export interface GraphQLOperationModel {
   operationName: string; // PascalCase, used as the GraphQL operation name, e.g. "GetUser"
   document: string; // full query/mutation document text, incl. an auto-selected field set
   fieldName: string; // root Query/Mutation field this operation calls, e.g. "user"
+  warnings?: string[];
 }
 
 export interface EndpointModel {
@@ -27,6 +28,7 @@ export interface EndpointModel {
   pathParams: ParamModel[];
   queryParams: ParamModel[]; // also used for GraphQL variables when `graphql` is set
   requestBodyType?: string; // TS type expression, e.g. "Pet" or "{ name: string }"
+  requestContentType?: string; // overrides default JSON content-type when body is non-JSON
   responseType: string; // TS type expression, "void" if none found
   graphql?: GraphQLOperationModel;
 }
@@ -56,4 +58,6 @@ export interface NormalizedSpec {
   endpoints: EndpointModel[];
   /** schema names referenced by each tag's endpoints, in first-use order */
   schemasByTag: Map<string, string[]>;
+  /** normalization issues surfaced to CLI / generated README */
+  warnings?: string[];
 }

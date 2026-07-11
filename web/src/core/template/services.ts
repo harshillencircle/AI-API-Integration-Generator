@@ -23,7 +23,12 @@ function buildMethodSignature(ep: EndpointModel): string {
 
 function buildMethodBody(ep: EndpointModel): string {
   const url = pathToTemplateLiteral(ep.path);
-  const config = ep.queryParams.length ? ', { params }' : '';
+  const configParts: string[] = [];
+  if (ep.queryParams.length) configParts.push('params');
+  if (ep.requestContentType) {
+    configParts.push(`headers: { 'Content-Type': '${ep.requestContentType}' }`);
+  }
+  const config = configParts.length ? `, { ${configParts.join(', ')} }` : '';
   const isVoid = ep.responseType === 'void';
   const generic = isVoid ? '' : `<${ep.responseType}>`;
 

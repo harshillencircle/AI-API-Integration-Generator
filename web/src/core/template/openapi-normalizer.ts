@@ -179,6 +179,65 @@ function mapPrimitive(type: string): string {
   }
 }
 
+function resolveParameter(spec: Json, param: Json, warnings: string[]): Json | undefined {
+  const resolved = param.$ref ? resolveRef(spec, param.$ref) : param;
+  if (!resolved) {
+    warnings.push(`Skipped unresolvable parameter ref: ${param.$ref}`);
+    return undefined;
+  }
+  if (!resolved.name || !resolved.in) {
+    warnings.push(`Skipped malformed parameter${param.$ref ? ` (${param.$ref})` : ''}`);
+    return undefined;
+  }
+  return resolved;
+}
+
+/** Merges path-level and operation-level parameters; operation wins on name+in conflicts. */
+function mergeParameters(pathItem: Json, op: Json, spec: Json, warnings: string[]): Json[] {
+  const merged = new Map<string, Json>();
+  for (const param of pathItem?.parameters ?? []) {
+    const resolved = resolveParameter(spec, param, warnings);
+    if (resolved) merged.set(`${resolved.in}:${resolved.name}`, resolved);
+  }
+  for (const param of op?.parameters ?? []) {
+    const resolved = resolveParameter(spec, param, warnings);
+    if (resolved) merged.set(`${resolved.in}:${resolved.name}`, resolved);
+  }
+  return Array.from(merged.values());
+}
+
+function applyParameter(
+  spec: Json,
+  param: Json,
+  isV2: boolean,
+  pathParams: ParamModel[],
+  queryParams: ParamModel[],
+  warnings: string[]
+): string | undefined {
+  if (param.in === 'path') {
+    pathParams.push({ name: param.name, tsType: paramTsType(spec, param, isV2), required: true });
+    return undefined;
+  }
+  if (param.in === 'query') {
+    queryParams.push({
+      name: param.name,
+      tsType: paramTsType(spec, param, isV2),
+      required: !!param.required,
+    });
+    return undefined;
+  }
+  if (param.in === 'body') {
+    const t = schemaToTsType(spec, param.schema ?? {});
+    return t.tsType;
+  }
+  if (param.in === 'header' || param.in === 'cookie' || param.in === 'formData') {
+    warnings.push(
+      `Skipped ${param.in} parameter '${param.name}' on operation (not yet mapped to generated services)`
+    );
+  }
+  return undefined;
+}
+
 function findResponseSchema(spec: Json, responses: Json, isV2: boolean): Json | undefined {
   if (!responses) return undefined;
   for (const code of SUCCESS_CODES) {
@@ -216,6 +275,7 @@ export function normalizeOpenApi(rawContent: string, baseUrlOverride?: string): 
   const tagOrder: string[] = [];
   const schemasByTag = new Map<string, string[]>();
   const claimedSchemas = new Set<string>();
+  const warnings: string[] = [];
 
   const paths = spec.paths ?? {};
   for (const [rawPath, pathItem] of Object.entries<Json>(paths)) {
@@ -237,20 +297,12 @@ export function normalizeOpenApi(rawContent: string, baseUrlOverride?: string): 
       let requestBodyType: string | undefined;
       const refsUsed: string[] = [];
 
-      const params: Json[] = op.parameters ?? [];
+      const params = mergeParameters(pathItem as Json, op, spec, warnings);
       for (const param of params) {
-        if (param.$ref) continue; // best-effort: skip unresolved shared parameter refs
-        if (param.in === 'path') {
-          pathParams.push({ name: param.name, tsType: paramTsType(spec, param, isV2), required: true });
-        } else if (param.in === 'query') {
-          queryParams.push({
-            name: param.name,
-            tsType: paramTsType(spec, param, isV2),
-            required: !!param.required,
-          });
-        } else if (param.in === 'body') {
+        const bodyType = applyParameter(spec, param, isV2, pathParams, queryParams, warnings);
+        if (bodyType) {
+          requestBodyType = bodyType;
           const t = schemaToTsType(spec, param.schema ?? {});
-          requestBodyType = t.tsType;
           if (t.refName) refsUsed.push(t.refName);
         }
       }
@@ -306,5 +358,6 @@ export function normalizeOpenApi(rawContent: string, baseUrlOverride?: string): 
     schemas,
     endpoints,
     schemasByTag,
+    warnings: warnings.length ? warnings : undefined,
   };
 }

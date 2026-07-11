@@ -12,4 +12,5 @@ export interface GenerationResult {
   files: GeneratedFile[];
   outputDir: string;
   duration: number;
+  warnings: string[];
 }

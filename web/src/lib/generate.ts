@@ -26,6 +26,6 @@ export async function generateFromRequest(req: GenerateRequest): Promise<Generat
     );
   }
 
-  const files = generateTemplateFiles(spec.content, spec.format, req.baseUrl);
-  return { files, duration: Date.now() - startTime };
+  const { files, warnings } = generateTemplateFiles(spec.content, spec.format, req.baseUrl);
+  return { files, duration: Date.now() - startTime, warnings };
 }

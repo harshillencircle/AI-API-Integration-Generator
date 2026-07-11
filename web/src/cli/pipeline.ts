@@ -21,8 +21,12 @@ export async function generateIntegration(options: GenerationOptions): Promise<G
   }
 
   logger.step(2, 'Generating integration (template-based, no AI)...');
-  const files = generateTemplateFiles(rawSpec.content, rawSpec.format, options.baseUrl);
+  const { files, warnings } = generateTemplateFiles(rawSpec.content, rawSpec.format, options.baseUrl);
   logger.success(`Generated ${files.length} files`);
+  if (warnings.length) {
+    logger.warn(`${warnings.length} normalization warning(s):`);
+    for (const w of warnings) logger.dim(`  • ${w}`);
+  }
 
   logger.step(3, `Writing to: ${chalk.cyan(options.output)}`);
   await writeGeneratedFiles(files, options.output);
@@ -31,5 +35,6 @@ export async function generateIntegration(options: GenerationOptions): Promise<G
     files,
     outputDir: path.resolve(options.output),
     duration: Date.now() - startTime,
+    warnings,
   };
 }

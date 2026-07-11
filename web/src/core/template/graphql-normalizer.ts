@@ -55,35 +55,102 @@ function graphqlTypeToTs(type: Json): string {
   return isNonNull ? base : `${base} | null`;
 }
 
+interface SelectionResult {
+  selection: string;
+  warnings: string[];
+}
+
 /**
- * Best-effort field selection for an auto-generated query/mutation document: scalars
- * and enums are selected directly, object/interface fields recurse up to a depth limit,
- * fields that require their own arguments are skipped (we have no value to supply), and
- * unions are skipped (would need per-type inline fragments). depth + visited together
- * guard against runaway recursion on self-referential types (e.g. Comment.replies).
+ * Auto-generated field selection for query/mutation documents. Scalars and enums are
+ * selected directly, object/interface fields recurse up to a depth limit, union fields
+ * emit inline fragments, and fields requiring arguments are skipped with a warning.
  */
-function buildSelectionSet(type: Json, depth: number, visited: Set<string>): string {
+function buildSelectionSet(
+  type: Json,
+  depth: number,
+  visited: Set<string>,
+  typePath = ''
+): SelectionResult {
+  const warnings: string[] = [];
   const named: Json = getNamedType(type as GraphQLOutputType);
-  if (isScalarType(named) || isEnumType(named)) return '';
-  if (typeof named.getFields !== 'function') return '{ __typename }';
-  if (depth <= 0 || visited.has(named.name)) return '{ __typename }';
+  if (isScalarType(named) || isEnumType(named)) return { selection: '', warnings };
+  if (depth <= 0) {
+    warnings.push(`Selection depth limit reached${typePath ? ` at ${typePath}` : ''}; using __typename only`);
+    return { selection: '{ __typename }', warnings };
+  }
+  if (visited.has(named.name)) return { selection: '{ __typename }', warnings };
 
   const nextVisited = new Set(visited);
   nextVisited.add(named.name);
 
+  // A root operation may itself return a union, not only a field on an object.
+  // Handle it before checking getFields(), because GraphQLUnionType has no fields.
+  if (isUnionType(named)) {
+    const fragments: string[] = [];
+    for (const member of named.getTypes() as Json[]) {
+      if (!isObjectType(member) && !isInterfaceType(member)) continue;
+      const sub = buildSelectionSet(member, depth - 1, nextVisited, `${typePath}.${member.name}`);
+      warnings.push(...sub.warnings);
+      if (sub.selection) fragments.push(`... on ${member.name} ${sub.selection}`);
+    }
+    if (fragments.length) return { selection: `{ ${fragments.join(' ')} }`, warnings };
+    warnings.push(`Skipped union '${named.name}' (no selectable member fields)`);
+    return { selection: '{ __typename }', warnings };
+  }
+
+  if (typeof named.getFields !== 'function') return { selection: '{ __typename }', warnings };
+
   const parts: string[] = [];
+  let skippedArgCount = 0;
+  let skippedUnionCount = 0;
+
   for (const field of Object.values(named.getFields()) as Json[]) {
-    if (field.name.startsWith('__') || field.args?.length) continue;
+    if (field.name.startsWith('__')) continue;
+
+    const fieldPath = typePath ? `${typePath}.${field.name}` : `${named.name}.${field.name}`;
+
+    if (field.args?.length) {
+      const argNames = (field.args as Json[]).map((a) => a.name).join(', ');
+      warnings.push(`Skipped field '${field.name}' on type '${named.name}' (requires arguments: ${argNames})`);
+      skippedArgCount++;
+      continue;
+    }
+
     const fieldNamed: Json = getNamedType(field.type as GraphQLOutputType);
     if (isScalarType(fieldNamed) || isEnumType(fieldNamed)) {
       parts.push(field.name);
     } else if (isObjectType(fieldNamed) || isInterfaceType(fieldNamed)) {
-      const sub = buildSelectionSet(field.type, depth - 1, nextVisited);
-      if (sub) parts.push(`${field.name} ${sub}`);
+      const sub = buildSelectionSet(field.type, depth - 1, nextVisited, fieldPath);
+      warnings.push(...sub.warnings);
+      if (sub.selection) parts.push(`${field.name} ${sub.selection}`);
+    } else if (isUnionType(fieldNamed)) {
+      const members = (fieldNamed.getTypes() as Json[]) ?? [];
+      const fragments: string[] = [];
+      for (const member of members) {
+        if (!isObjectType(member) && !isInterfaceType(member)) continue;
+        const sub = buildSelectionSet(member, depth - 1, nextVisited, `${fieldPath}.${member.name}`);
+        warnings.push(...sub.warnings);
+        if (sub.selection) fragments.push(`... on ${member.name} ${sub.selection}`);
+      }
+      if (fragments.length) {
+        parts.push(`${field.name} { ${fragments.join(' ')} }`);
+      } else {
+        warnings.push(`Skipped union field '${field.name}' on type '${named.name}' (no selectable member fields)`);
+        skippedUnionCount++;
+      }
     }
   }
 
-  return parts.length ? `{ ${parts.join(' ')} }` : '{ __typename }';
+  if (!parts.length) {
+    if (skippedArgCount || skippedUnionCount) {
+      warnings.push(
+        `Incomplete selection for type '${named.name}'${typePath ? ` (${typePath})` : ''}; falling back to __typename`
+      );
+    }
+    return { selection: '{ __typename }', warnings };
+  }
+
+  return { selection: `{ ${parts.join(' ')} }`, warnings };
 }
 
 function buildDocument(
@@ -92,12 +159,13 @@ function buildDocument(
   fieldName: string,
   args: Json[],
   returnType: Json
-): string {
+): { document: string; warnings: string[] } {
   const argsSDL = args.length ? `(${args.map((a) => `$${a.name}: ${String(a.type)}`).join(', ')})` : '';
   const fieldArgs = args.length ? `(${args.map((a) => `${a.name}: $${a.name}`).join(', ')})` : '';
-  const selection = buildSelectionSet(returnType, SELECTION_DEPTH, new Set());
+  const { selection, warnings } = buildSelectionSet(returnType, SELECTION_DEPTH, new Set());
   const fieldLine = selection ? `${fieldName}${fieldArgs} ${selection}` : `${fieldName}${fieldArgs}`;
-  return `${operationType} ${operationName}${argsSDL} {\n  ${fieldLine}\n}`;
+  const document = `${operationType} ${operationName}${argsSDL} {\n  ${fieldLine}\n}`;
+  return { document, warnings };
 }
 
 function registerNamedTypes(schema: GraphQLSchema, rootNames: Set<string>): Map<string, SchemaModel> {
@@ -157,6 +225,7 @@ function buildNormalizedSpecFromSchema(schema: GraphQLSchema, baseUrlOverride?: 
   const tagOrder: string[] = [];
   const schemasByTag = new Map<string, string[]>();
   const claimedSchemas = new Set<string>();
+  const warnings: string[] = [];
 
   function walkRoot(rootType: Json | null | undefined, operationType: 'query' | 'mutation', tag: string) {
     if (!rootType) return;
@@ -166,8 +235,9 @@ function buildNormalizedSpecFromSchema(schema: GraphQLSchema, baseUrlOverride?: 
     for (const field of Object.values(rootType.getFields()) as Json[]) {
       const operationName = toPascalCase(field.name);
       const args: Json[] = field.args ?? [];
-      const document = buildDocument(operationType, operationName, field.name, args, field.type);
+      const { document, warnings: docWarnings } = buildDocument(operationType, operationName, field.name, args, field.type);
       const responseType = graphqlTypeToTs(field.type);
+      if (docWarnings.length) warnings.push(...docWarnings.map((w) => `[${operationName}] ${w}`));
 
       const queryParams: ParamModel[] = args.map((a) => ({
         name: a.name,
@@ -185,7 +255,13 @@ function buildNormalizedSpecFromSchema(schema: GraphQLSchema, baseUrlOverride?: 
         queryParams,
         requestBodyType: undefined,
         responseType,
-        graphql: { operationType, operationName, document, fieldName: field.name },
+        graphql: {
+          operationType,
+          operationName,
+          document,
+          fieldName: field.name,
+          warnings: docWarnings.length ? docWarnings : undefined,
+        },
       });
 
       const directRefs = [
@@ -224,6 +300,7 @@ function buildNormalizedSpecFromSchema(schema: GraphQLSchema, baseUrlOverride?: 
     schemas,
     endpoints,
     schemasByTag,
+    warnings: warnings.length ? warnings : undefined,
   };
 }
 

@@ -7,17 +7,23 @@ import { generateServiceFiles } from './services';
 import { generateHookFiles, generateQueryKeysFile } from './hooks';
 import { generateMockDataFile, generateMockHandlersFile } from './mocks';
 import { generateReadme } from './docs';
-import { generateClientFile } from './infra';
+import { generateClientFile, generateAuthFile, generateErrorFile } from './infra';
 import type { GeneratedFile } from '../types';
+import type { NormalizedSpec } from './model';
 
 export type TemplateSourceFormat = 'openapi' | 'postman' | 'graphql-sdl' | 'graphql-introspection';
 
-const NORMALIZERS: Record<TemplateSourceFormat, (rawContent: string, baseUrlOverride?: string) => ReturnType<typeof normalizeOpenApi>> = {
+const NORMALIZERS: Record<TemplateSourceFormat, (rawContent: string, baseUrlOverride?: string) => NormalizedSpec> = {
   openapi: normalizeOpenApi,
   postman: normalizePostman,
   'graphql-sdl': normalizeGraphQLSDL,
   'graphql-introspection': normalizeGraphQLIntrospection,
 };
+
+export interface TemplateGenerationResult {
+  files: GeneratedFile[];
+  warnings: string[];
+}
 
 /**
  * Deterministic OpenAPI/Swagger/Postman/GraphQL → TypeScript integration codegen.
@@ -27,10 +33,13 @@ export function generateTemplateFiles(
   rawContent: string,
   format: TemplateSourceFormat,
   baseUrlOverride?: string
-): GeneratedFile[] {
+): TemplateGenerationResult {
   const spec = NORMALIZERS[format](rawContent, baseUrlOverride);
+  const warnings = spec.warnings ?? [];
 
-  return [
+  const files: GeneratedFile[] = [
+    generateErrorFile(),
+    generateAuthFile(),
     generateClientFile(spec),
     generateQueryKeysFile(spec),
     { path: 'types/index.ts', content: generateTypesFile(spec) },
@@ -41,4 +50,6 @@ export function generateTemplateFiles(
     generateMockHandlersFile(spec),
     generateReadme(spec),
   ];
+
+  return { files, warnings };
 }

@@ -122,39 +122,92 @@ function parseUrl(url: Json): ParsedUrl {
   return { pathTemplate: `/${segments.filter(Boolean).join('/')}`, pathParams, queryParams };
 }
 
+function rawLanguageToContentType(language: string | undefined): string {
+  switch ((language ?? '').toLowerCase()) {
+    case 'xml':
+      return 'application/xml';
+    case 'html':
+      return 'text/html';
+    case 'javascript':
+    case 'json':
+      return 'application/json';
+    default:
+      return 'text/plain';
+  }
+}
+
+interface RequestBodyResult {
+  requestBodyType?: string;
+  requestContentType?: string;
+}
+
 function extractRequestBody(
   schemas: Map<string, SchemaModel>,
   opBaseName: string,
-  body: Json
-): string | undefined {
-  if (!body || !body.mode) return undefined;
+  body: Json,
+  warnings: string[]
+): RequestBodyResult {
+  if (!body || !body.mode) return {};
 
   if (body.mode === 'raw') {
     const raw = typeof body.raw === 'string' ? body.raw.trim() : '';
-    if (!raw) return undefined;
+    if (!raw) return {};
     try {
-      return registerBodySchema(schemas, `${opBaseName}Request`, JSON.parse(raw));
+      return {
+        requestBodyType: registerBodySchema(schemas, `${opBaseName}Request`, JSON.parse(raw)),
+        requestContentType: 'application/json',
+      };
     } catch {
-      return undefined; // not JSON (XML/text/etc.) — best-effort skip
+      const language = body.options?.raw?.language;
+      const contentType = rawLanguageToContentType(typeof language === 'string' ? language : undefined);
+      warnings.push(
+        `Request body for '${opBaseName}' is non-JSON (${language ?? 'unknown'}); typed as string with Content-Type ${contentType}`
+      );
+      return { requestBodyType: 'string', requestContentType: contentType };
     }
   }
 
-  if (body.mode === 'urlencoded' || body.mode === 'formdata') {
-    const entries: Json[] = Array.isArray(body[body.mode]) ? body[body.mode] : [];
+  if (body.mode === 'urlencoded') {
+    const entries: Json[] = Array.isArray(body.urlencoded) ? body.urlencoded : [];
     const active = entries.filter((e) => !e.disabled && typeof e.key === 'string' && e.key);
-    if (!active.length) return undefined;
+    if (!active.length) return {};
     const obj: Record<string, unknown> = {};
     for (const e of active) obj[e.key] = e.value ?? '';
-    return registerBodySchema(schemas, `${opBaseName}Request`, obj);
+    return {
+      requestBodyType: registerBodySchema(schemas, `${opBaseName}Request`, obj),
+      requestContentType: 'application/x-www-form-urlencoded',
+    };
   }
 
-  return undefined;
+  if (body.mode === 'formdata') {
+    const entries: Json[] = Array.isArray(body.formdata) ? body.formdata : [];
+    const active = entries.filter((e) => !e.disabled && typeof e.key === 'string' && e.key);
+    if (!active.length) return {};
+    const obj: Record<string, unknown> = {};
+    for (const e of active) obj[e.key] = e.value ?? '';
+    return {
+      requestBodyType: registerBodySchema(schemas, `${opBaseName}Request`, obj),
+      requestContentType: 'multipart/form-data',
+    };
+  }
+
+  if (body.mode === 'file') {
+    warnings.push(`Request body for '${opBaseName}' uses file upload mode; typed as FormData`);
+    return { requestBodyType: 'FormData', requestContentType: 'multipart/form-data' };
+  }
+
+  if (body.mode === 'graphql') {
+    warnings.push(`Request '${opBaseName}' is a GraphQL body in Postman — use GraphQL SDL/introspection input instead`);
+  }
+
+  return {};
 }
 
 function extractResponseType(
   schemas: Map<string, SchemaModel>,
   opBaseName: string,
-  responses: Json
+  responses: Json,
+  warnings: string[]
 ): string {
   if (!Array.isArray(responses) || !responses.length) return 'void';
   const success = responses.find((r) => SUCCESS_CODES.includes(String(r.code))) ?? responses[0];
@@ -164,7 +217,8 @@ function extractResponseType(
     const parsed = JSON.parse(raw);
     return parsed === null ? 'void' : registerBodySchema(schemas, `${opBaseName}Response`, parsed);
   } catch {
-    return 'void';
+    warnings.push(`Response body for '${opBaseName}' is non-JSON; typed as string`);
+    return 'string';
   }
 }
 
@@ -172,7 +226,8 @@ function buildEndpoint(
   schemas: Map<string, SchemaModel>,
   tag: string,
   item: Json,
-  usedOpIds: Map<string, Set<string>>
+  usedOpIds: Map<string, Set<string>>,
+  warnings: string[]
 ): EndpointModel | undefined {
   const req = item.request;
   if (!req) return undefined;
@@ -192,8 +247,8 @@ function buildEndpoint(
   usedOpIds.set(tag, used);
 
   const opBaseName = `${toPascalCase(tag)}${toPascalCase(rawName)}`;
-  const requestBodyType = extractRequestBody(schemas, opBaseName, req.body);
-  const responseType = extractResponseType(schemas, opBaseName, item.response);
+  const { requestBodyType, requestContentType } = extractRequestBody(schemas, opBaseName, req.body, warnings);
+  const responseType = extractResponseType(schemas, opBaseName, item.response, warnings);
 
   return {
     method,
@@ -204,6 +259,7 @@ function buildEndpoint(
     pathParams,
     queryParams,
     requestBodyType,
+    requestContentType,
     responseType,
   };
 }
@@ -227,6 +283,7 @@ export function normalizePostman(rawContent: string, baseUrlOverride?: string): 
   const schemasByTag = new Map<string, string[]>();
   const claimedSchemas = new Set<string>();
   const usedOpIds = new Map<string, Set<string>>();
+  const warnings: string[] = [];
 
   function walk(items: Json[], topTag?: string) {
     for (const item of items) {
@@ -241,7 +298,7 @@ export function normalizePostman(rawContent: string, baseUrlOverride?: string): 
       const tag = topTag ?? 'default';
       if (!tagOrder.includes(tag)) tagOrder.push(tag);
 
-      const endpoint = buildEndpoint(schemas, tag, item, usedOpIds);
+      const endpoint = buildEndpoint(schemas, tag, item, usedOpIds, warnings);
       if (!endpoint) continue;
       endpoints.push(endpoint);
 
@@ -273,5 +330,6 @@ export function normalizePostman(rawContent: string, baseUrlOverride?: string): 
     schemas,
     endpoints,
     schemasByTag,
+    warnings: warnings.length ? warnings : undefined,
   };
 }
