@@ -62,6 +62,16 @@ function buildQueryHook(ep: EndpointModel, tag: string, serviceClass: string): s
 }
 
 function buildMutationHook(ep: EndpointModel, tag: string, serviceClass: string): string {
+  if (ep.postmanGraphql) {
+    const hookName = `use${toPascalCase(ep.operationId)}`;
+    return `export function ${hookName}() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (variables: ${ep.postmanGraphql.variablesType} | undefined) => ${serviceClass}.${ep.operationId}(variables),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.${tag}.lists() }),
+  });
+}`;
+  }
   const inputCount = ep.pathParams.length + (ep.requestBodyType ? 1 : 0) + (ep.queryParams.length ? 1 : 0);
   const hookName = `use${toPascalCase(ep.operationId)}`;
 

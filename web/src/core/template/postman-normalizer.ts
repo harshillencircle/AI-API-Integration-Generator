@@ -1,6 +1,14 @@
 import { toCamelCase, toPascalCase, safeIdentifier, safePropName } from './naming';
 import { extractTypeRefs } from './type-refs';
-import type { EndpointModel, HttpMethod, NormalizedSpec, ParamModel, PropertyModel, SchemaModel } from './model';
+import type {
+  EndpointModel,
+  HttpMethod,
+  NormalizedSpec,
+  ParamModel,
+  PostmanGraphQLOperationModel,
+  PropertyModel,
+  SchemaModel,
+} from './model';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = any;
@@ -139,6 +147,7 @@ function rawLanguageToContentType(language: string | undefined): string {
 interface RequestBodyResult {
   requestBodyType?: string;
   requestContentType?: string;
+  postmanGraphql?: PostmanGraphQLOperationModel;
 }
 
 function extractRequestBody(
@@ -197,7 +206,27 @@ function extractRequestBody(
   }
 
   if (body.mode === 'graphql') {
-    warnings.push(`Request '${opBaseName}' is a GraphQL body in Postman — use GraphQL SDL/introspection input instead`);
+    const document = typeof body.graphql?.query === 'string' ? body.graphql.query.trim() : '';
+    if (!document) {
+      warnings.push(`GraphQL request '${opBaseName}' has no query document and was skipped`);
+      return {};
+    }
+
+    const rawVariables = body.graphql?.variables;
+    if (typeof rawVariables !== 'string' || !rawVariables.trim()) {
+      return { postmanGraphql: { document, variablesType: 'Record<string, unknown>' } };
+    }
+    try {
+      const variables = JSON.parse(rawVariables);
+      const variablesType =
+        variables && typeof variables === 'object' && !Array.isArray(variables)
+          ? jsonValueToTsType(variables)
+          : 'Record<string, unknown>';
+      return { postmanGraphql: { document, variablesType } };
+    } catch {
+      warnings.push(`GraphQL variables for '${opBaseName}' are not valid JSON; using Record<string, unknown>`);
+      return { postmanGraphql: { document, variablesType: 'Record<string, unknown>' } };
+    }
   }
 
   return {};
@@ -247,7 +276,12 @@ function buildEndpoint(
   usedOpIds.set(tag, used);
 
   const opBaseName = `${toPascalCase(tag)}${toPascalCase(rawName)}`;
-  const { requestBodyType, requestContentType } = extractRequestBody(schemas, opBaseName, req.body, warnings);
+  const { requestBodyType, requestContentType, postmanGraphql } = extractRequestBody(
+    schemas,
+    opBaseName,
+    req.body,
+    warnings
+  );
   const responseType = extractResponseType(schemas, opBaseName, item.response, warnings);
 
   return {
@@ -261,6 +295,7 @@ function buildEndpoint(
     requestBodyType,
     requestContentType,
     responseType,
+    postmanGraphql,
   };
 }
 

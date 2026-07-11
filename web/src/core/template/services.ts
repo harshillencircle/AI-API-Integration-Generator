@@ -76,6 +76,20 @@ function buildGraphQLMethodBody(ep: EndpointModel): string {
   return lines.join('\n');
 }
 
+/** Postman supplies a GraphQL document but not the schema, so preserve the full response envelope. */
+function buildPostmanGraphQLMethodSignature(ep: EndpointModel): string {
+  return `variables?: ${ep.postmanGraphql!.variablesType}`;
+}
+
+function buildPostmanGraphQLMethodBody(ep: EndpointModel): string {
+  const url = pathToTemplateLiteral(ep.path);
+  const docConst = graphqlDocumentConstName(ep);
+  const isVoid = ep.responseType === 'void';
+  const generic = isVoid ? '' : `<${ep.responseType}>`;
+  const call = `apiClient.post${generic}(${url}, { query: ${docConst}, ...(variables === undefined ? {} : { variables }) })`;
+  return isVoid ? `    await ${call};` : `    const { data } = await ${call};\n    return data;`;
+}
+
 export function generateServiceFiles(spec: NormalizedSpec): GeneratedFile[] {
   const schemaNames = new Set(spec.schemas.keys());
   const files: GeneratedFile[] = [];
@@ -103,14 +117,25 @@ export function generateServiceFiles(spec: NormalizedSpec): GeneratedFile[] {
     const methods = endpoints.map((ep) => {
       const doc = ep.summary ? `  /** ${ep.summary.replace(/\s+/g, ' ').trim()} */\n` : '';
       const returnType = ep.responseType === 'void' ? 'Promise<void>' : `Promise<${ep.responseType}>`;
-      const signature = ep.graphql ? buildGraphQLMethodSignature(ep) : buildMethodSignature(ep);
-      const body = ep.graphql ? buildGraphQLMethodBody(ep) : buildMethodBody(ep);
+      const signature = ep.graphql
+        ? buildGraphQLMethodSignature(ep)
+        : ep.postmanGraphql
+          ? buildPostmanGraphQLMethodSignature(ep)
+          : buildMethodSignature(ep);
+      const body = ep.graphql
+        ? buildGraphQLMethodBody(ep)
+        : ep.postmanGraphql
+          ? buildPostmanGraphQLMethodBody(ep)
+          : buildMethodBody(ep);
       return `${doc}  static async ${ep.operationId}(${signature}): ${returnType} {\n${body}\n  }`;
     });
 
     const documentConsts = endpoints
-      .filter((ep) => ep.graphql)
-      .map((ep) => `const ${graphqlDocumentConstName(ep)} = ${toJsTemplateLiteral(ep.graphql!.document)};`)
+      .filter((ep) => ep.graphql || ep.postmanGraphql)
+      .map((ep) => {
+        const document = ep.graphql?.document ?? ep.postmanGraphql!.document;
+        return `const ${graphqlDocumentConstName(ep)} = ${toJsTemplateLiteral(document)};`;
+      })
       .join('\n\n');
 
     const typeImport = usedTypes.size

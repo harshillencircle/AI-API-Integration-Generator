@@ -19,6 +19,13 @@ export interface GraphQLOperationModel {
   warnings?: string[];
 }
 
+/** A GraphQL operation saved in a Postman collection. Postman provides the document
+ * and example variables, but not the schema needed for strongly typed responses. */
+export interface PostmanGraphQLOperationModel {
+  document: string;
+  variablesType: string;
+}
+
 export interface EndpointModel {
   method: HttpMethod;
   path: string; // raw spec path, e.g. /pets/{id}; empty string for GraphQL endpoints
@@ -31,6 +38,7 @@ export interface EndpointModel {
   requestContentType?: string; // overrides default JSON content-type when body is non-JSON
   responseType: string; // TS type expression, "void" if none found
   graphql?: GraphQLOperationModel;
+  postmanGraphql?: PostmanGraphQLOperationModel;
 }
 
 export type SchemaKind = 'object' | 'enum' | 'alias';

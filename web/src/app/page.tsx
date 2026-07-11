@@ -216,37 +216,17 @@ export default function Page() {
         </div>
       </section>
 
-      <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      <div className="wrap" style={{ paddingTop: 48, paddingBottom: 80 }}>
 
-        {/* ── Capabilities ── */}
-        <div className="section-title">What gets generated</div>
-        <div className="features-grid" style={{ marginBottom: 56 }}>
-          {FEATURES.map((f) => (
-            <div className="feat" key={f.title}>
-              <div
-                className="feat-tag"
-                style={{ color: f.color, borderColor: `${f.color}55`, background: `${f.color}14` }}
-              >
-                {f.tag}
-              </div>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* ── 01 — Spec + Options combined card ── */}
+        {/* ── 01 — Spec + options ── */}
         <div className="section-title">01 — Spec</div>
         <div className="card" style={{ marginBottom: 16 }}>
-
-          {/* Mode toggle */}
           <div className="mode-toggle">
-            <button className={mode === 'paste'  ? 'active' : ''} onClick={() => setMode('paste')}>Paste spec</button>
+            <button className={mode === 'paste' ? 'active' : ''} onClick={() => setMode('paste')}>Paste spec</button>
             <button className={mode === 'upload' ? 'active' : ''} onClick={() => setMode('upload')}>Upload file</button>
-            <button className={mode === 'url'    ? 'active' : ''} onClick={() => setMode('url')}>From URL</button>
+            <button className={mode === 'url' ? 'active' : ''} onClick={() => setMode('url')}>From URL</button>
           </div>
 
-          {/* Paste mode */}
           {mode === 'paste' && (
             <textarea
               className="spec-input"
@@ -256,10 +236,8 @@ export default function Page() {
             />
           )}
 
-          {/* Upload mode */}
           {mode === 'upload' && (
             <div>
-              {/* Truly hidden input — no visual artifacts */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -287,7 +265,6 @@ export default function Page() {
             </div>
           )}
 
-          {/* URL mode */}
           {mode === 'url' && (
             <input
               placeholder="https://api.example.com/openapi.json"
@@ -295,10 +272,8 @@ export default function Page() {
               onChange={(e) => setSpecUrl(e.target.value)}
             />
           )}
-
         </div>
 
-        {/* ── Generate button ── */}
         <button
           className={`btn btn-primary btn-generate${loading ? ' btn-loading' : ''}`}
           disabled={!canGenerate}
@@ -307,12 +282,87 @@ export default function Page() {
           {loading ? '⚙  Generating…' : '⚡  Generate Integration'}
         </button>
 
-        {/* ── Error ── */}
         {error && (
           <div className="error-box" style={{ marginTop: 20 }}>
             {error}
           </div>
         )}
+
+        <div style={{ height: 56 }} />
+
+        {/* ── Why this matters ── */}
+        <div className="section-title">Why this matters</div>
+        <div className="card" style={{ marginBottom: 56 }}>
+          <p className="why-copy">
+            This is the part of every frontend project nobody wants to redo by hand. The developer pastes
+            a Swagger / OpenAPI spec, a Postman Collection, or a GraphQL schema — and instead of manually
+            writing <code>users.ts</code>, <code>orders.ts</code>, <code>hooks.ts</code>, and{' '}
+            <code>types.ts</code> for every resource, the generator produces the whole integration layer
+            in seconds: Axios services, React Query hooks, TypeScript types, error handling, validation,
+            a clean folder structure, and API documentation — all in one pass, and reproducible every
+            time the spec changes.
+          </p>
+
+          <div className="compare-grid">
+            <div className="compare-col compare-before">
+              <div className="compare-label">Without this — written by hand</div>
+              <ul className="compare-list">
+                <li><code>users.ts</code>, <code>orders.ts</code> — hand-rolled per resource</li>
+                <li><code>hooks.ts</code> — wired up manually per endpoint</li>
+                <li><code>types.ts</code> — kept in sync by hand</li>
+                <li>Error handling and validation re-invented per resource</li>
+                <li>Re-done from scratch every time the API changes</li>
+              </ul>
+            </div>
+            <div className="compare-col compare-after">
+              <div className="compare-label">Paste a spec — get all of this</div>
+              <ul className="compare-list">
+                <li>Axios services, generated per resource/tag</li>
+                <li>React Query hooks (useQuery / useMutation) out of the box</li>
+                <li>Strict TypeScript types for every request &amp; response</li>
+                <li>Built-in error handling and Zod validation</li>
+                <li>Consistent folder structure, plus generated API docs</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Pipeline diagram ── */}
+        <div className="pipeline">
+          <div className="pipeline-box input">
+            <div className="pb-label">Input</div>
+            <div className="pb-note">OpenAPI 3.x / Swagger 2.0, Postman Collection, or GraphQL schema — paste, upload, or link</div>
+          </div>
+          <div className="pipeline-arrow">→</div>
+          <div className="pipeline-box engine">
+            <div className="pb-label">Template engine</div>
+            <div className="pb-note">Spec is parsed into a schema model then walked by deterministic codegen — no network call</div>
+          </div>
+          <div className="pipeline-arrow">→</div>
+          <div className="pipeline-box output">
+            <div className="pb-label">Output</div>
+            <div className="pb-note">Types, validators, services, hooks, mocks, docs — preview or download as ZIP</div>
+          </div>
+        </div>
+
+        <div style={{ height: 56 }} />
+
+        {/* ── Capabilities ── */}
+        <div className="section-title">What gets generated</div>
+        <div className="features-grid" style={{ marginBottom: 56 }}>
+          {FEATURES.map((f) => (
+            <div className="feat" key={f.title}>
+              <div
+                className="feat-tag"
+                style={{ color: f.color, borderColor: `${f.color}55`, background: `${f.color}14` }}
+              >
+                {f.tag}
+              </div>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
+            </div>
+          ))}
+        </div>
 
         {/* ── Compare toggle ── */}
         <div style={{ marginTop: 20 }}>

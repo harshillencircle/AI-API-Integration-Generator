@@ -42,7 +42,7 @@ export function generateReadme(spec: NormalizedSpec): GeneratedFile {
     return lines.join('\n');
   });
 
-  const hasGraphQL = spec.endpoints.some((e) => e.graphql);
+  const hasGraphQL = spec.endpoints.some((e) => e.graphql || e.postmanGraphql);
   const warningsSection =
     spec.warnings?.length ?
       `## Normalization warnings
