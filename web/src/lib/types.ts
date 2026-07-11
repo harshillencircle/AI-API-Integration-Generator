@@ -1,0 +1,15 @@
+import type { GeneratedFile } from '../core/types';
+
+export type { GeneratedFile };
+
+export interface GenerateRequest {
+  specContent?: string;
+  specUrl?: string;
+  filename?: string;
+  baseUrl?: string;
+}
+
+export interface GenerateResponse {
+  files: GeneratedFile[];
+  duration: number;
+}
