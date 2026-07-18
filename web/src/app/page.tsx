@@ -216,7 +216,7 @@ export default function Page() {
         </div>
       </section>
 
-      <div className="wrap" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <div className="wrap" style={{ paddingTop: 24, paddingBottom: 80 }}>
 
         {/* ── 01 — Spec + options ── */}
         <div className="section-title">01 — Spec</div>
@@ -285,6 +285,88 @@ export default function Page() {
         {error && (
           <div className="error-box" style={{ marginTop: 20 }}>
             {error}
+          </div>
+        )}
+
+        {/* ── Output ── */}
+        {result && (
+          <div className="result-anim" style={{ marginTop: 32 }}>
+            <div className="section-title">02 — Output</div>
+
+            <div className="output-meta">
+              <div className="output-stat">
+                <span className="stat-badge">✓ {result.files.length} files</span>
+                <span>generated in {result.duration} ms</span>
+                {result.warnings && result.warnings.length > 0 && (
+                  <span className="stat-badge severity-warning" style={{ marginLeft: 8 }}>
+                    ⚠ {result.warnings.length} warning{result.warnings.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+              <div className="row">
+                <button className="btn" onClick={handleCopy}>
+                  {copied ? '✓ Copied' : 'Copy file'}
+                </button>
+                <button className="btn btn-primary" onClick={handleDownloadZip}>
+                  ↓ Download ZIP
+                </button>
+              </div>
+            </div>
+
+            {result.warnings && result.warnings.length > 0 && (
+              <div className="warning-box" style={{ marginTop: 16 }}>
+                <strong>Normalization warnings</strong>
+                <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                  {result.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="file-tree">
+              <div className="tree-titlebar">
+                <div className="tbar-dot" style={{ background: '#FF5F57' }} />
+                <div className="tbar-dot" style={{ background: '#FEBC2E' }} />
+                <div className="tbar-dot" style={{ background: '#28C840' }} />
+                <span className="tbar-title">generated output</span>
+              </div>
+
+              <div className="tabbar-row">
+                <div className="tabbar scrollx">
+                  {result.files.map((f, i) => {
+                    const cat = categoryOf(f.path);
+                    return (
+                      <button
+                        key={f.path}
+                        className={`tab ${cat?.cls ?? ''} ${i === activeTab ? 'active' : ''}`}
+                        onClick={() => setActiveTab(i)}
+                      >
+                        {f.path}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  className="tab-copy-btn"
+                  onClick={handleCopy}
+                  title={`Copy ${result.files[activeTab]?.path}`}
+                >
+                  {copied ? '✓' : '⧉'}
+                </button>
+              </div>
+
+              <pre className="code-pane scrollx">{result.files[activeTab]?.content}</pre>
+            </div>
+
+            <div className="legend">
+              {CATEGORIES.map((c) => (
+                <div className="legend-item" key={c.prefix}>
+                  <div className="legend-dot" style={{ background: c.dot, color: c.dot }} />
+                  {c.label}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -473,87 +555,6 @@ export default function Page() {
           </div>
         )}
 
-        {/* ── Output ── */}
-        {result && (
-          <div className="result-anim" style={{ marginTop: 48 }}>
-            <div className="section-title">02 — Output</div>
-
-            <div className="output-meta">
-              <div className="output-stat">
-                <span className="stat-badge">✓ {result.files.length} files</span>
-                <span>generated in {result.duration} ms</span>
-                {result.warnings && result.warnings.length > 0 && (
-                  <span className="stat-badge severity-warning" style={{ marginLeft: 8 }}>
-                    ⚠ {result.warnings.length} warning{result.warnings.length === 1 ? '' : 's'}
-                  </span>
-                )}
-              </div>
-              <div className="row">
-                <button className="btn" onClick={handleCopy}>
-                  {copied ? '✓ Copied' : 'Copy file'}
-                </button>
-                <button className="btn btn-primary" onClick={handleDownloadZip}>
-                  ↓ Download ZIP
-                </button>
-              </div>
-            </div>
-
-            {result.warnings && result.warnings.length > 0 && (
-              <div className="warning-box" style={{ marginTop: 16 }}>
-                <strong>Normalization warnings</strong>
-                <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-                  {result.warnings.map((w) => (
-                    <li key={w}>{w}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="file-tree">
-              <div className="tree-titlebar">
-                <div className="tbar-dot" style={{ background: '#FF5F57' }} />
-                <div className="tbar-dot" style={{ background: '#FEBC2E' }} />
-                <div className="tbar-dot" style={{ background: '#28C840' }} />
-                <span className="tbar-title">generated output</span>
-              </div>
-
-              <div className="tabbar-row">
-                <div className="tabbar scrollx">
-                  {result.files.map((f, i) => {
-                    const cat = categoryOf(f.path);
-                    return (
-                      <button
-                        key={f.path}
-                        className={`tab ${cat?.cls ?? ''} ${i === activeTab ? 'active' : ''}`}
-                        onClick={() => setActiveTab(i)}
-                      >
-                        {f.path}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  className="tab-copy-btn"
-                  onClick={handleCopy}
-                  title={`Copy ${result.files[activeTab]?.path}`}
-                >
-                  {copied ? '✓' : '⧉'}
-                </button>
-              </div>
-
-              <pre className="code-pane scrollx">{result.files[activeTab]?.content}</pre>
-            </div>
-
-            <div className="legend">
-              {CATEGORIES.map((c) => (
-                <div className="legend-item" key={c.prefix}>
-                  <div className="legend-dot" style={{ background: c.dot, color: c.dot }} />
-                  {c.label}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <footer>api-gen</footer>
