@@ -7,7 +7,7 @@ import { generateServiceFiles } from './services';
 import { generateHookFiles, generateQueryKeysFile } from './hooks';
 import { generateMockDataFile, generateMockHandlersFile } from './mocks';
 import { generateReadme } from './docs';
-import { generateClientFile, generateAuthFile, generateErrorFile } from './infra';
+import { generateClientFile, generateAuthFile, generateErrorFile, generateValidateFile } from './infra';
 import type { GeneratedFile } from '../types';
 import type { NormalizedSpec } from './model';
 
@@ -37,9 +37,10 @@ export function generateTemplateFiles(
   const spec = NORMALIZERS[format](rawContent, baseUrlOverride);
   const warnings = spec.warnings ?? [];
 
-  const files: GeneratedFile[] = [
+  const codeFiles: GeneratedFile[] = [
     generateErrorFile(),
-    generateAuthFile(),
+    generateAuthFile(spec),
+    generateValidateFile(),
     generateClientFile(spec),
     generateQueryKeysFile(spec),
     { path: 'types/index.ts', content: generateTypesFile(spec) },
@@ -48,7 +49,11 @@ export function generateTemplateFiles(
     ...generateHookFiles(spec),
     generateMockDataFile(spec),
     generateMockHandlersFile(spec),
-    generateReadme(spec),
+  ];
+
+  const files: GeneratedFile[] = [
+    ...codeFiles,
+    generateReadme(spec, codeFiles.map((f) => f.path)),
   ];
 
   return { files, warnings };

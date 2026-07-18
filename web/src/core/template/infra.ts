@@ -23,9 +23,11 @@ export function isApiError(error: unknown): error is ApiError {
   return { path: 'api/errors.ts', content };
 }
 
-export function generateAuthFile(): GeneratedFile {
+export function generateAuthFile(spec: NormalizedSpec): GeneratedFile {
+  const baseUrl = spec.baseUrl ?? 'https://api.example.com';
   const content = `const AUTH_TOKEN_KEY = 'auth_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const REFRESH_PATH = process.env.NEXT_PUBLIC_API_REFRESH_PATH ?? '/auth/refresh';
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -50,17 +52,49 @@ export function clearAuthTokens(): void {
 }
 
 /**
- * Override this to call your refresh endpoint. Return the new access token, or null on failure.
- * The client 401 interceptor calls this automatically before rejecting.
+ * Default refresh flow: POST { refreshToken } to REFRESH_PATH, expecting { accessToken, refreshToken }
+ * back. Uses plain fetch (not apiClient) to avoid a circular import with client.ts, which imports this
+ * function. Edit REFRESH_PATH or this whole function if your API's refresh contract differs.
+ * The client's 401 interceptor calls this automatically before rejecting.
  */
 export async function refreshAccessToken(): Promise<string | null> {
   const refresh = getRefreshToken();
   if (!refresh) return null;
-  // TODO: implement — e.g. POST /auth/refresh with { refreshToken: refresh }
-  return null;
+  try {
+    const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '${baseUrl}';
+    const res = await fetch(\`\${baseURL}\${REFRESH_PATH}\`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refresh }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const accessToken = data?.accessToken ?? data?.access_token;
+    const newRefresh = data?.refreshToken ?? data?.refresh_token;
+    if (typeof accessToken !== 'string') return null;
+    setAuthTokens(accessToken, typeof newRefresh === 'string' ? newRefresh : undefined);
+    return accessToken;
+  } catch {
+    return null;
+  }
 }
 `;
   return { path: 'api/auth.ts', content };
+}
+
+export function generateValidateFile(): GeneratedFile {
+  const content = `import { z } from 'zod';
+import { ApiError } from './errors';
+
+export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, operation: string): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    throw new ApiError(\`Response validation failed for \${operation}\`, undefined, 'INVALID_RESPONSE', result.error.issues);
+  }
+  return result.data;
+}
+`;
+  return { path: 'api/validate.ts', content };
 }
 
 export function generateClientFile(spec: NormalizedSpec): GeneratedFile {

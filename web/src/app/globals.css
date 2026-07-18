@@ -131,15 +131,34 @@ nav .inner {
 
 /* ── Hero ─────────────────────────────────────────── */
 .hero {
-  padding: 64px 0 8px;
+  padding: 64px 0 44px;
+}
+.hero-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--violet);
+  margin-bottom: 18px;
+}
+.hero-kicker::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--violet);
+  opacity: 0.5;
 }
 .hero h1 {
   font-size: clamp(32px, 5vw, 46px);
   font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1.1;
+  line-height: 1.15;
   color: var(--fg);
-  margin-bottom: 14px;
+  margin-bottom: 18px;
   text-wrap: balance;
 }
 .hero h1 em {
@@ -676,7 +695,8 @@ textarea.spec-input {
   border: none;
   border-left: 1px solid var(--rim);
   border-bottom: 1px solid var(--rim);
-  background: linear-gradient(to right, transparent, rgba(246,245,251,0.9) 55%);
+  background: var(--surface-solid);
+  box-shadow: -10px 0 8px -6px var(--surface-solid);
   color: var(--sub);
   font-size: 14px;
   cursor: pointer;
@@ -684,7 +704,6 @@ textarea.spec-input {
 }
 .tab-copy-btn:hover {
   color: var(--violet);
-  background: linear-gradient(to right, transparent, var(--surface-solid) 55%);
 }
 
 .tab {

@@ -71,10 +71,10 @@ function categoryOf(path: string) {
 
 const FEATURES: { tag: string; color: string; title: string; desc: string }[] = [
   { tag: 'CLIENT',  color: '#5EEAD4', title: 'API Client',         desc: "Axios client with typed ApiError mapping, 401 refresh hook, exponential retry on 5xx, and bearer-token injection." },
-  { tag: 'SERVICE', color: '#38BDF8', title: 'Service Layer',      desc: 'Typed static classes, one per resource/tag, wrapping every endpoint in the spec.' },
+  { tag: 'SERVICE', color: '#38BDF8', title: 'Service Layer',      desc: 'Typed static classes, one per resource/tag, that validate every response against its Zod schema before returning it.' },
   { tag: 'HOOKS',   color: '#A78BFA', title: 'React Query Hooks',  desc: 'useQuery / useMutation hooks per endpoint, plus a shared query-key factory.' },
   { tag: 'TYPES',   color: '#34D399', title: 'TypeScript Types',   desc: 'Interfaces for every request and response shape in the spec — strict, no `any`.' },
-  { tag: 'VALID',   color: '#FBBF24', title: 'Zod Validators',     desc: 'Runtime validation schemas mirroring the generated types, one per resource.' },
+  { tag: 'VALID',   color: '#FBBF24', title: 'Zod Validators',     desc: 'Runtime validation schemas mirroring the generated types, automatically applied to every service response.' },
   { tag: 'MOCKS',   color: '#F472B6', title: 'MSW Mocks',          desc: 'Mock data and request handlers so the frontend can be built before the backend is ready.' },
   { tag: 'DOCS',    color: '#93AECF', title: 'Docs',               desc: 'A generated README describing the output and how to wire it into your app.' },
 ];
@@ -212,7 +212,14 @@ export default function Page() {
       {/* ── Hero ── */}
       <section className="hero">
         <div className="wrap">
-          <h1>Paste a spec. <em>Get a typed integration layer.</em></h1>
+          <div className="hero-kicker">Run it yourself</div>
+          <h1>Paste a spec.<br /><em>Get a typed integration layer.</em></h1>
+          <p className="hero-sub">
+            Drop in an OpenAPI / Swagger spec, a Postman Collection, or a GraphQL schema —
+            get Axios services, Zod validators, React Query hooks, MSW mocks, and docs
+            generated instantly. Deterministic template-based codegen: no AI model, no API
+            key, nothing sent to a third party.
+          </p>
         </div>
       </section>
 
@@ -304,9 +311,6 @@ export default function Page() {
                 )}
               </div>
               <div className="row">
-                <button className="btn" onClick={handleCopy}>
-                  {copied ? '✓ Copied' : 'Copy file'}
-                </button>
                 <button className="btn btn-primary" onClick={handleDownloadZip}>
                   ↓ Download ZIP
                 </button>

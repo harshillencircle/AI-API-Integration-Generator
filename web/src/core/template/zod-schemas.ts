@@ -80,12 +80,18 @@ function schemaBlock(schema: SchemaModel, schemaNames: Set<string>, isCyclic: bo
   return lines.join('\n');
 }
 
-export function generateValidatorFiles(spec: NormalizedSpec): GeneratedFile[] {
-  const schemaNames = new Set(spec.schemas.keys());
+/** Which tag's validators/{tag}.schema.ts file a given schema name is exported from. */
+export function buildSchemaOwnerMap(spec: NormalizedSpec): Map<string, string> {
   const ownerTag = new Map<string, string>();
   for (const [tag, names] of spec.schemasByTag) {
     for (const name of names) ownerTag.set(name, tag);
   }
+  return ownerTag;
+}
+
+export function generateValidatorFiles(spec: NormalizedSpec): GeneratedFile[] {
+  const schemaNames = new Set(spec.schemas.keys());
+  const ownerTag = buildSchemaOwnerMap(spec);
   const cyclicSchemas = computeCyclicSchemas(Array.from(schemaNames), (name) => schemaDeps(name, spec, schemaNames));
 
   const files: GeneratedFile[] = [];

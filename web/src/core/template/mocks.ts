@@ -5,7 +5,7 @@ import { extractTypeRefs } from './type-refs';
 import { topoSort } from './topo-sort';
 import { splitTopLevel, findTopLevelColon, stripOuterParens } from './zod-from-ts';
 
-function mockExprForType(tsType: string, schemaNames: Set<string>, fieldHint = 'value'): string {
+export function mockExprForType(tsType: string, schemaNames: Set<string>, fieldHint = 'value'): string {
   const t = stripOuterParens(tsType.trim());
 
   if (t.endsWith(' | null')) return mockExprForType(t.slice(0, -' | null'.length), schemaNames, fieldHint);
